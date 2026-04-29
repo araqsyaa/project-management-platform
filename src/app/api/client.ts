@@ -98,6 +98,22 @@ export const api = {
         team: payload.teamId ? { id: Number(payload.teamId) } : undefined,
       }),
     }),
+  updateProject: (id: string, payload: { name: string; description?: string; teamId?: string; startDate?: string; endDate?: string }) =>
+    request<ApiProject>(`/projects/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        id: Number(id),
+        name: payload.name,
+        description: payload.description ?? '',
+        startDate: payload.startDate ?? null,
+        endDate: payload.endDate ?? null,
+        team: payload.teamId ? { id: Number(payload.teamId) } : undefined,
+      }),
+    }),
+  deleteProject: (id: string) =>
+    request<void>(`/projects/${id}`, {
+      method: 'DELETE',
+    }),
   tasks: () => request<ApiTask[]>('/tasks'),
   projectTasks: (projectId: string) => request<ApiTask[]>(`/projects/${projectId}/tasks`),
   milestones: (projectId: string) => request<ApiMilestone[]>(`/projects/${projectId}/milestones`),

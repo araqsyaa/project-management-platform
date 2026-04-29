@@ -85,6 +85,13 @@ public class ApiController {
         return service.updateProject(project, userId);
     }
 
+    @DeleteMapping("/projects/{id}")
+    public ResponseEntity<Void> deleteProject(@PathVariable Long id, Authentication auth) {
+        Long userId = auth != null ? (Long) auth.getPrincipal() : null;
+        service.deleteProject(id, userId);
+        return ResponseEntity.ok().build();
+    }
+
     @GetMapping("/projects/{projectId}/milestones")
     public List<Milestone> milestones(@PathVariable Long projectId) { return service.getMilestones(projectId); }
 

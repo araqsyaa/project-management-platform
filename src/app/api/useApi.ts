@@ -15,7 +15,7 @@ function mapProject(p: ApiProject) {
     progress: 0,
     deadline: p.endDate || '',
     status: 'active' as const,
-    client: '',
+    client: p.description || '',
   };
 }
 

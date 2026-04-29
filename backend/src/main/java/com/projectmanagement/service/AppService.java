@@ -109,6 +109,31 @@ public class AppService {
         );
         return saved;
     }
+    public void deleteProject(Long id, Long actorId) {
+        Project existing = projectRepo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Project not found"));
+
+        List<Task> projectTasks = taskRepo.findByProjectId(id);
+        if (!projectTasks.isEmpty()) {
+            taskRepo.deleteAll(projectTasks);
+        }
+
+        List<Milestone> projectMilestones = milestoneRepo.findByProjectId(id);
+        if (!projectMilestones.isEmpty()) {
+            milestoneRepo.deleteAll(projectMilestones);
+        }
+
+        String projectName = existing.getName();
+        projectRepo.delete(existing);
+
+        createActivity(
+                actorId,
+                "project",
+                "Project deleted",
+                actorName(actorId) + " deleted project \"" + projectName + "\"",
+                "/projects"
+        );
+    }
 
     // Milestones
     public List<Milestone> getMilestones(Long projectId) { return milestoneRepo.findByProjectId(projectId); }
