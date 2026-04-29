@@ -129,7 +129,7 @@ public class ApiController {
             service.updateMilestone(projectId, created.getId(), created.getName(), created.getDescription(),
                     created.getDueDate(), ids, userId);
         }
-        return service.getMilestone(created.getId()).orElse(created);
+        return service.getMilestone(created.getId(), userId).orElse(created);
     }
 
     @PutMapping("/projects/{projectId}/milestones/{milestoneId}")
