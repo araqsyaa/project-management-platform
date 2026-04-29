@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { api, getToken, setToken, storeUser, getStoredUser, clearToken, toFrontendRole } from '../api/client';
+import { api, getToken, setToken, storeUser, clearToken, toFrontendRole, onAuthStateChanged } from '../api/client';
 import { FrontendUser } from '../types/frontend';
 
 interface AuthContextType {
@@ -29,19 +29,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const token = getToken();
-    const storedUser = getStoredUser();
-    if (token && storedUser) {
-      setUser({
-        id: String(storedUser.id),
-        name: storedUser.name,
-        email: storedUser.email,
-        role: storedUser.role as FrontendUser['role'],
-      });
-    } else {
+    if (!token) {
       clearToken();
       setUser(null);
+      setLoading(false);
+      return;
     }
-    setLoading(false);
+
+    api.auth.me()
+      .then((me) => {
+        storeUser(me);
+        setUser(toUser(me));
+      })
+      .catch(() => {
+        clearToken();
+        setUser(null);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -60,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(res.token);
       storeUser(res.user);
       setUser(toUser(res.user));
+      onAuthStateChanged();
       return true;
     } catch {
       return false;
@@ -72,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(res.token);
       storeUser(res.user);
       setUser(toUser(res.user));
+      onAuthStateChanged();
       return true;
     } catch {
       return false;
@@ -81,6 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     clearToken();
     setUser(null);
+    onAuthStateChanged();
   };
 
   return (

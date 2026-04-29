@@ -15,6 +15,14 @@ export default function RegisterPage() {
   const [searchParams] = useSearchParams();
   const { register } = useAuth();
 
+  const getSafeRedirect = () => {
+    const redirect = searchParams.get('redirect');
+    if (redirect && /^\/(?!\/)/.test(redirect)) {
+      return redirect;
+    }
+    return '/dashboard';
+  };
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -22,8 +30,7 @@ export default function RegisterPage() {
     try {
       const ok = await register(name, email, password);
       if (ok) {
-        const redirect = searchParams.get('redirect');
-        navigate(redirect || '/dashboard');
+        navigate(getSafeRedirect());
       } else {
         setError('Registration failed. Email may already exist.');
       }

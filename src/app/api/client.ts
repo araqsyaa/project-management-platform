@@ -25,6 +25,12 @@ export function clearToken() {
   localStorage.removeItem(USER_KEY);
 }
 
+function notifyAuthChanged() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('pm-auth-changed'));
+  }
+}
+
 function notifyAuthExpired() {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event('pm-auth-expired'));
@@ -71,6 +77,7 @@ export const api = {
           role ? { name, email, password, role } : { name, email, password },
         ),
       }),
+    me: () => request<ApiUser>('/users/me'),
   },
   users: () => request<ApiUser[]>('/users'),
   teams: () => request<ApiTeam[]>('/teams'),
@@ -279,8 +286,8 @@ export interface ApiProjectInvite {
 
 export interface ApiInviteDetails {
   token: string;
-  projectId: number;
-  projectName: string;
+  projectId?: number;
+  projectName?: string;
   expiresAt: string;
   revoked: boolean;
   usedCount: number;
@@ -337,4 +344,8 @@ export function toFrontendRole(role: string): string {
     DEVELOPER: 'team_member',
   };
   return map[role] || role.toLowerCase();
+}
+
+export function onAuthStateChanged() {
+  notifyAuthChanged();
 }

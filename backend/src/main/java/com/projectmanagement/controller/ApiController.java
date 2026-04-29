@@ -39,9 +39,15 @@ public class ApiController {
     @GetMapping("/users")
     public List<User> users() { return service.getUsers(); }
 
-    @GetMapping("/users/{id}")
+    @GetMapping("/users/{id:\\d+}")
     public ResponseEntity<?> user(@PathVariable Long id) {
         return service.getUser(id).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/users/me")
+    public ResponseEntity<?> currentUser(Authentication auth) {
+        Long userId = auth != null ? (Long) auth.getPrincipal() : null;
+        return service.getCurrentUser(userId).map(ResponseEntity::ok).orElse(ResponseEntity.status(HttpStatus.UNAUTHORIZED).build());
     }
 
     @GetMapping("/teams")
@@ -264,8 +270,9 @@ public class ApiController {
     }
 
     @GetMapping("/activities")
-    public List<Notification> activities(@RequestParam(required = false) Integer limit) {
-        return service.getActivities(limit);
+    public List<Notification> activities(@RequestParam(required = false) Integer limit, Authentication auth) {
+        Long actorId = auth != null ? (Long) auth.getPrincipal() : null;
+        return service.getActivities(actorId, limit);
     }
 
     @PostMapping("/activities")
@@ -296,11 +303,15 @@ public class ApiController {
     }
 
     @GetMapping("/reports/overdue-tasks")
-    public List<Task> overdueTasks() { return service.getOverdueTasks(); }
+    public List<Task> overdueTasks(Authentication auth) {
+        Long actorId = auth != null ? (Long) auth.getPrincipal() : null;
+        return service.getOverdueTasks(actorId);
+    }
 
     @GetMapping("/reports/projects/{projectId}/completed")
-    public Map<String, Object> completedByProject(@PathVariable Long projectId) {
-        return Map.of("projectId", projectId, "completedCount", service.getCompletedTasksByProject(projectId));
+    public Map<String, Object> completedByProject(@PathVariable Long projectId, Authentication auth) {
+        Long actorId = auth != null ? (Long) auth.getPrincipal() : null;
+        return Map.of("projectId", projectId, "completedCount", service.getCompletedTasksByProject(projectId, actorId));
     }
 
     @GetMapping("/reports/users/{userId}/tasks")

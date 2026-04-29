@@ -65,6 +65,12 @@ public class AppService {
     // Users
     public List<User> getUsers() { return userRepo.findAll(); }
     public Optional<User> getUser(Long id) { return userRepo.findById(id); }
+    public Optional<User> getCurrentUser(Long actorId) {
+        if (actorId == null) {
+            return Optional.empty();
+        }
+        return userRepo.findById(actorId);
+    }
 
     // Teams
     public List<Team> getTeams() { return teamRepo.findAll(); }
@@ -365,10 +371,22 @@ public class AppService {
         taskRepo.delete(existing);
         updateMilestoneCompletion(milestone);
     }
-    public List<Task> getOverdueTasks() {
-        return taskRepo.findByDeadlineBeforeAndStatusNot(LocalDate.now(), Task.Status.DONE);
+    public List<Task> getOverdueTasks(Long actorId) {
+        if (actorId == null) {
+            return List.of();
+        }
+        List<Long> memberProjectIds = projectMembershipRepo.findByUserId(actorId).stream()
+                .map(ProjectMembership::getProject)
+                .filter(Objects::nonNull)
+                .map(Project::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        return taskRepo.findByDeadlineBeforeAndStatusNot(LocalDate.now(), Task.Status.DONE).stream()
+                .filter(task -> task.getProject() != null && memberProjectIds.contains(task.getProject().getId()))
+                .toList();
     }
-    public long getCompletedTasksByProject(Long projectId) {
+    public long getCompletedTasksByProject(Long projectId, Long actorId) {
+        requireProjectMember(projectId, actorId);
         return taskRepo.findByProjectIdAndStatus(projectId, Task.Status.DONE).size();
     }
 
@@ -397,8 +415,11 @@ public class AppService {
         return saved;
     }
 
-    public List<Notification> getActivities(Integer limit) {
-        List<Notification> activities = notificationRepo.findAllByOrderByCreatedAtDesc();
+    public List<Notification> getActivities(Long actorId, Integer limit) {
+        if (actorId == null) {
+            return List.of();
+        }
+        List<Notification> activities = notificationRepo.findByUserIdOrderByCreatedAtDesc(actorId);
         if (limit == null || limit <= 0 || activities.size() <= limit) {
             return activities;
         }
@@ -558,8 +579,6 @@ public class AppService {
                 .orElseThrow(() -> new IllegalArgumentException("Invite not found"));
         return Map.of(
                 "token", invite.getToken(),
-                "projectId", invite.getProject().getId(),
-                "projectName", invite.getProject().getName(),
                 "expiresAt", invite.getExpiresAt(),
                 "revoked", invite.isRevoked(),
                 "usedCount", invite.getUsedCount(),

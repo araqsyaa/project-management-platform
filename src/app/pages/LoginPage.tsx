@@ -16,6 +16,14 @@ export default function LoginPage() {
   const [searchParams] = useSearchParams();
   const { login } = useAuth();
 
+  const getSafeRedirect = () => {
+    const redirect = searchParams.get('redirect');
+    if (redirect && /^\/(?!\/)/.test(redirect)) {
+      return redirect;
+    }
+    return '/dashboard';
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -23,8 +31,7 @@ export default function LoginPage() {
     try {
       const ok = await login(email, password);
       if (ok) {
-        const redirect = searchParams.get('redirect');
-        navigate(redirect || '/dashboard');
+        navigate(getSafeRedirect());
       } else {
         setError(t.loginError);
       }

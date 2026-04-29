@@ -62,6 +62,20 @@ function mapActivity(activity: ApiActivity): FrontendActivity {
   };
 }
 
+function useAuthRefreshKey() {
+  const [key, setKey] = useState(0);
+  useEffect(() => {
+    const bump = () => setKey((prev) => prev + 1);
+    window.addEventListener('pm-auth-changed', bump);
+    window.addEventListener('pm-auth-expired', bump);
+    return () => {
+      window.removeEventListener('pm-auth-changed', bump);
+      window.removeEventListener('pm-auth-expired', bump);
+    };
+  }, []);
+  return key;
+}
+
 function mapProjectMember(member: ApiProjectMembership) {
   return {
     id: String(member.id),
@@ -306,6 +320,7 @@ export function getProjectProgress(
 }
 
 export function useProjects() {
+  const authRefreshKey = useAuthRefreshKey();
   const [data, setData] = useState<FrontendProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -321,12 +336,13 @@ export function useProjects() {
 
   useEffect(() => {
     void loadProjects();
-  }, []);
+  }, [authRefreshKey]);
 
   return { projects: data, loading, error, refresh: loadProjects };
 }
 
 export function useUsers() {
+  const authRefreshKey = useAuthRefreshKey();
   const [data, setData] = useState<ReturnType<typeof mapUser>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -342,12 +358,13 @@ export function useUsers() {
 
   useEffect(() => {
     void loadUsers();
-  }, []);
+  }, [authRefreshKey]);
 
   return { users: data, loading, error, refresh: loadUsers };
 }
 
 export function useTeams() {
+  const authRefreshKey = useAuthRefreshKey();
   const [data, setData] = useState<ApiTeam[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -363,12 +380,13 @@ export function useTeams() {
 
   useEffect(() => {
     void loadTeams();
-  }, []);
+  }, [authRefreshKey]);
 
   return { teams: data, loading, error, refresh: loadTeams };
 }
 
 export function useTasks(projectId?: string) {
+  const authRefreshKey = useAuthRefreshKey();
   const [data, setData] = useState<FrontendTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -388,12 +406,13 @@ export function useTasks(projectId?: string) {
 
   useEffect(() => {
     void loadTasks();
-  }, [projectId]);
+  }, [projectId, authRefreshKey]);
 
   return { tasks: data, loading, error, refresh: loadTasks };
 }
 
 export function useMilestones(projectId: string) {
+  const authRefreshKey = useAuthRefreshKey();
   const [data, setData] = useState<{
     id: string;
     projectId: string;
@@ -431,12 +450,13 @@ export function useMilestones(projectId: string) {
 
   useEffect(() => {
     void loadMilestones();
-  }, [projectId]);
+  }, [projectId, authRefreshKey]);
 
   return { milestones: data, loading, error, refresh: loadMilestones };
 }
 
 export function useActivities(limit?: number) {
+  const authRefreshKey = useAuthRefreshKey();
   const [data, setData] = useState<FrontendActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -452,12 +472,13 @@ export function useActivities(limit?: number) {
 
   useEffect(() => {
     void loadActivities();
-  }, [limit]);
+  }, [limit, authRefreshKey]);
 
   return { activities: data, loading, error, refresh: loadActivities };
 }
 
 export function useProjectMembers(projectId?: string) {
+  const authRefreshKey = useAuthRefreshKey();
   const [data, setData] = useState<FrontendProjectMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -478,12 +499,13 @@ export function useProjectMembers(projectId?: string) {
 
   useEffect(() => {
     void loadMembers();
-  }, [projectId]);
+  }, [projectId, authRefreshKey]);
 
   return { members: data, loading, error, refresh: loadMembers };
 }
 
 export function useProjectInvites(projectId?: string) {
+  const authRefreshKey = useAuthRefreshKey();
   const [data, setData] = useState<FrontendProjectInvite[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -504,7 +526,7 @@ export function useProjectInvites(projectId?: string) {
 
   useEffect(() => {
     void loadInvites();
-  }, [projectId]);
+  }, [projectId, authRefreshKey]);
 
   return { invites: data, loading, error, refresh: loadInvites };
 }

@@ -246,6 +246,30 @@ class ApiControllerTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    void activitiesAreScopedToCurrentUser() throws Exception {
+        String userAToken = registerAndGetToken("Activity A", "activity-a@x.com");
+        String userBToken = registerAndGetToken("Activity B", "activity-b@x.com");
+
+        mvc.perform(post("/api/activities")
+                        .header("Authorization", bearer(userAToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"type\":\"project\",\"title\":\"A created\",\"message\":\"A action\",\"targetPath\":\"/projects\"}"))
+                .andExpect(status().isOk());
+
+        mvc.perform(post("/api/activities")
+                        .header("Authorization", bearer(userBToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"type\":\"project\",\"title\":\"B created\",\"message\":\"B action\",\"targetPath\":\"/projects\"}"))
+                .andExpect(status().isOk());
+
+        mvc.perform(get("/api/activities")
+                        .header("Authorization", bearer(userAToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].title").value("A created"))
+                .andExpect(jsonPath("$[0].message").value("A action"));
+    }
+
     private String registerAndGetToken(String name, String email) throws Exception {
         MvcResult result = mvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)

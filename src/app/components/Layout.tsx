@@ -6,7 +6,6 @@ import {
   LayoutDashboard, 
   FolderKanban, 
   Users, 
-  Shield,
   FileText, 
   Settings, 
   Bell,
@@ -41,7 +40,6 @@ export default function Layout() {
     { path: '/dashboard', icon: LayoutDashboard, label: t.dashboard },
     { path: '/projects', icon: FolderKanban, label: t.projects },
     { path: '/users', icon: Users, label: t.users },
-    { path: '/roles', icon: Shield, label: t.role },
     { path: '/reports', icon: FileText, label: t.reports },
     { path: '/settings', icon: Settings, label: t.settings },
   ];

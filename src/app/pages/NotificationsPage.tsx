@@ -66,7 +66,7 @@ export default function NotificationsPage() {
         <div>
           <h1 className="text-3xl">{t.recentActivity}</h1>
           <p className="text-sm text-foreground/60 mt-2">
-            Showing the full backend activity history used by the dashboard.
+            Showing your personal activity history.
           </p>
         </div>
       </div>

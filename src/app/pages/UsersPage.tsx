@@ -5,12 +5,26 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Badge } from '../components/ui/badge';
 import { Avatar, AvatarFallback } from '../components/ui/avatar';
 import { Search } from 'lucide-react';
-import { useUsers } from '../api/useApi';
+import { useProjectMembers, useProjects, useUsers } from '../api/useApi';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Button } from '../components/ui/button';
+import { api } from '../api/client';
 import { Role } from '../types/frontend';
 
 export default function UsersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const { users, loading, error } = useUsers();
+  const { projects } = useProjects();
+  const [selectedProjectId, setSelectedProjectId] = useState('');
+  const { members, loading: membersLoading, refresh: refreshMembers } = useProjectMembers(selectedProjectId);
+  const [savingRole, setSavingRole] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!selectedProjectId && projects.length > 0) {
+      setSelectedProjectId(projects[0].id);
+    }
+  }, [projects, selectedProjectId]);
+
   const filteredUsers = users.filter(user =>
     user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.email.toLowerCase().includes(searchQuery.toLowerCase())
@@ -39,10 +53,21 @@ export default function UsersPage() {
   if (loading) return <div className="p-8">Loading...</div>;
   if (error) return <div className="p-8 text-red-500">Error: {error}</div>;
 
+  const handleToggleMemberRole = async (memberUserId: string, currentRole: 'owner' | 'member') => {
+    if (!selectedProjectId) return;
+    try {
+      setSavingRole(memberUserId);
+      await api.updateProjectMemberRole(selectedProjectId, memberUserId, currentRole === 'owner' ? 'MEMBER' : 'OWNER');
+      await refreshMembers();
+    } finally {
+      setSavingRole(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl">{t.users}</h1>
+        <h1 className="text-3xl">People & Access</h1>
       </div>
 
       {/* Search */}
@@ -106,6 +131,56 @@ export default function UsersPage() {
           <p className="text-foreground/60">{t.noData}</p>
         </div>
       )}
+
+      <div className="space-y-3 border rounded-lg border-foreground/10 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-xl">Project Membership Roles</h2>
+          <div className="w-full max-w-sm">
+            <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select project" />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {membersLoading ? (
+          <p className="text-foreground/60">Loading members...</p>
+        ) : members.length === 0 ? (
+          <p className="text-foreground/60">No members in selected project.</p>
+        ) : (
+          <div className="space-y-2">
+            {members.map((member) => (
+              <div key={member.id} className="flex items-center justify-between rounded-md border border-foreground/10 px-3 py-2">
+                <div>
+                  <p className="font-medium">{member.userName}</p>
+                  <p className="text-sm text-foreground/60">{member.userEmail}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant={member.role === 'owner' ? 'default' : 'secondary'}>
+                    {member.role}
+                  </Badge>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={savingRole === member.userId}
+                    onClick={() => handleToggleMemberRole(member.userId, member.role)}
+                  >
+                    Make {member.role === 'owner' ? 'Member' : 'Owner'}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
     </div>
   );
