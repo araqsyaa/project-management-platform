@@ -62,15 +62,22 @@ public class ApiController {
     }
 
     @GetMapping("/projects")
-    public List<Project> projects() { return service.getProjects(); }
+    public List<Project> projects(Authentication auth) {
+        Long userId = auth != null ? (Long) auth.getPrincipal() : null;
+        return service.getProjects(userId);
+    }
 
     @GetMapping("/projects/{id}")
-    public ResponseEntity<?> project(@PathVariable Long id) {
-        return service.getProject(id).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<?> project(@PathVariable Long id, Authentication auth) {
+        Long userId = auth != null ? (Long) auth.getPrincipal() : null;
+        return service.getProject(id, userId).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping("/teams/{teamId}/projects")
-    public List<Project> projectsByTeam(@PathVariable Long teamId) { return service.getProjectsByTeam(teamId); }
+    public List<Project> projectsByTeam(@PathVariable Long teamId, Authentication auth) {
+        Long userId = auth != null ? (Long) auth.getPrincipal() : null;
+        return service.getProjectsByTeam(teamId, userId);
+    }
 
     @PostMapping("/projects")
     public Project createProject(@RequestBody Project project, Authentication auth) {
@@ -93,11 +100,15 @@ public class ApiController {
     }
 
     @GetMapping("/projects/{projectId}/milestones")
-    public List<Milestone> milestones(@PathVariable Long projectId) { return service.getMilestones(projectId); }
+    public List<Milestone> milestones(@PathVariable Long projectId, Authentication auth) {
+        Long userId = auth != null ? (Long) auth.getPrincipal() : null;
+        return service.getMilestones(projectId, userId);
+    }
 
     @GetMapping("/milestones/{id}")
-    public ResponseEntity<?> milestone(@PathVariable Long id) {
-        return service.getMilestone(id).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<?> milestone(@PathVariable Long id, Authentication auth) {
+        Long userId = auth != null ? (Long) auth.getPrincipal() : null;
+        return service.getMilestone(id, userId).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping("/projects/{projectId}/milestones")
@@ -146,19 +157,85 @@ public class ApiController {
         return ResponseEntity.ok().build();
     }
 
+    @GetMapping("/projects/{projectId}/members")
+    public List<ProjectMembership> projectMembers(@PathVariable Long projectId, Authentication auth) {
+        Long userId = auth != null ? (Long) auth.getPrincipal() : null;
+        return service.getProjectMembers(projectId, userId);
+    }
+
+    @PutMapping("/projects/{projectId}/members/{userId}")
+    public ProjectMembership updateProjectMemberRole(@PathVariable Long projectId,
+                                                     @PathVariable Long userId,
+                                                     @RequestBody Map<String, String> body,
+                                                     Authentication auth) {
+        Long actorId = auth != null ? (Long) auth.getPrincipal() : null;
+        String rawRole = body.get("role");
+        if (rawRole == null) {
+            throw new IllegalArgumentException("Role is required");
+        }
+        ProjectMembership.Role role = ProjectMembership.Role.valueOf(rawRole);
+        return service.updateProjectMemberRole(projectId, userId, role, actorId);
+    }
+
+    @DeleteMapping("/projects/{projectId}/members/{userId}")
+    public ResponseEntity<Void> removeProjectMember(@PathVariable Long projectId,
+                                                    @PathVariable Long userId,
+                                                    Authentication auth) {
+        Long actorId = auth != null ? (Long) auth.getPrincipal() : null;
+        service.removeProjectMember(projectId, userId, actorId);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/projects/{projectId}/invites")
+    public ProjectInvite createProjectInvite(@PathVariable Long projectId,
+                                             @RequestBody(required = false) Map<String, Number> body,
+                                             Authentication auth) {
+        Long actorId = auth != null ? (Long) auth.getPrincipal() : null;
+        Integer expiresInHours = body != null && body.get("expiresInHours") != null ? body.get("expiresInHours").intValue() : null;
+        Integer maxUses = body != null && body.get("maxUses") != null ? body.get("maxUses").intValue() : null;
+        return service.createProjectInvite(projectId, actorId, expiresInHours, maxUses);
+    }
+
+    @GetMapping("/projects/{projectId}/invites")
+    public List<ProjectInvite> projectInvites(@PathVariable Long projectId, Authentication auth) {
+        Long actorId = auth != null ? (Long) auth.getPrincipal() : null;
+        return service.getProjectInvites(projectId, actorId);
+    }
+
+    @GetMapping("/invites/{token}")
+    public ResponseEntity<?> inviteDetails(@PathVariable String token) {
+        return ResponseEntity.ok(service.getInviteDetails(token));
+    }
+
+    @PostMapping("/invites/{token}/accept")
+    public ProjectMembership acceptProjectInvite(@PathVariable String token, Authentication auth) {
+        Long actorId = auth != null ? (Long) auth.getPrincipal() : null;
+        return service.acceptProjectInvite(token, actorId);
+    }
+
     @GetMapping("/tasks")
-    public List<Task> tasks() { return service.getTasks(); }
+    public List<Task> tasks(Authentication auth) {
+        Long userId = auth != null ? (Long) auth.getPrincipal() : null;
+        return service.getTasks(userId);
+    }
 
     @GetMapping("/tasks/{id}")
-    public ResponseEntity<?> task(@PathVariable Long id) {
-        return service.getTask(id).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<?> task(@PathVariable Long id, Authentication auth) {
+        Long userId = auth != null ? (Long) auth.getPrincipal() : null;
+        return service.getTask(id, userId).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping("/projects/{projectId}/tasks")
-    public List<Task> tasksByProject(@PathVariable Long projectId) { return service.getTasksByProject(projectId); }
+    public List<Task> tasksByProject(@PathVariable Long projectId, Authentication auth) {
+        Long userId = auth != null ? (Long) auth.getPrincipal() : null;
+        return service.getTasksByProject(projectId, userId);
+    }
 
     @GetMapping("/users/{userId}/tasks")
-    public List<Task> tasksByUser(@PathVariable Long userId) { return service.getTasksByAssignee(userId); }
+    public List<Task> tasksByUser(@PathVariable Long userId, Authentication auth) {
+        Long actorId = auth != null ? (Long) auth.getPrincipal() : null;
+        return service.getTasksByAssignee(userId, actorId);
+    }
 
     @PostMapping("/tasks")
     public Task createTask(@RequestBody Task task, Authentication auth) {
@@ -174,13 +251,17 @@ public class ApiController {
     }
 
     @DeleteMapping("/tasks/{id}")
-    public ResponseEntity<Void> deleteTask(@PathVariable Long id) {
-        service.deleteTask(id);
+    public ResponseEntity<Void> deleteTask(@PathVariable Long id, Authentication auth) {
+        Long userId = auth != null ? (Long) auth.getPrincipal() : null;
+        service.deleteTask(id, userId);
         return ResponseEntity.ok().build();
     }
 
     @GetMapping("/tasks/{taskId}/comments")
-    public List<Comment> comments(@PathVariable Long taskId) { return service.getComments(taskId); }
+    public List<Comment> comments(@PathVariable Long taskId, Authentication auth) {
+        Long userId = auth != null ? (Long) auth.getPrincipal() : null;
+        return service.getComments(taskId, userId);
+    }
 
     @GetMapping("/activities")
     public List<Notification> activities(@RequestParam(required = false) Integer limit) {
@@ -223,7 +304,10 @@ public class ApiController {
     }
 
     @GetMapping("/reports/users/{userId}/tasks")
-    public List<Task> tasksPerUser(@PathVariable Long userId) { return service.getTasksByAssignee(userId); }
+    public List<Task> tasksPerUser(@PathVariable Long userId, Authentication auth) {
+        Long actorId = auth != null ? (Long) auth.getPrincipal() : null;
+        return service.getTasksByAssignee(userId, actorId);
+    }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<String> handleError(IllegalArgumentException e) {

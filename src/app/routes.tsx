@@ -10,6 +10,8 @@ import ReportsPage from './pages/ReportsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import ProgressPage from './pages/ProgressPage';
 import SettingsPage from './pages/SettingsPage';
+import InviteAcceptPage from './pages/InviteAcceptPage';
+import RolesPage from './pages/RolesPage';
 import Layout from './components/Layout';
 
 export const router = createBrowserRouter([
@@ -20,6 +22,10 @@ export const router = createBrowserRouter([
   {
     path: '/register',
     element: <RegisterPage />,
+  },
+  {
+    path: '/invite/:token',
+    element: <InviteAcceptPage />,
   },
   {
     path: '/',
@@ -52,6 +58,10 @@ export const router = createBrowserRouter([
       {
         path: 'users',
         element: <UsersPage />,
+      },
+      {
+        path: 'roles',
+        element: <RolesPage />,
       },
       {
         path: 'reports',

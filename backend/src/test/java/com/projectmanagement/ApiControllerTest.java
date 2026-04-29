@@ -166,6 +166,86 @@ class ApiControllerTest {
                 .andExpect(jsonPath("$[0].deadline").value("2026-05-10"));
     }
 
+    @Test
+    void projectCreatorIsOwnerAndCanBeListedAsMember() throws Exception {
+        String ownerToken = registerAndGetToken("Owner User", "owner-user@x.com");
+
+        Long projectId = extractId(
+                mvc.perform(post("/api/projects")
+                                .header("Authorization", bearer(ownerToken))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"name\":\"Owner Project\"}"))
+                        .andExpect(status().isOk())
+                        .andReturn()
+        );
+
+        mvc.perform(get("/api/projects/" + projectId + "/members")
+                        .header("Authorization", bearer(ownerToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].user.email").value("owner-user@x.com"))
+                .andExpect(jsonPath("$[0].role").value("OWNER"));
+    }
+
+    @Test
+    void inviteAcceptanceAddsMemberAndProjectBecomesVisible() throws Exception {
+        String ownerToken = registerAndGetToken("Invite Owner", "invite-owner@x.com");
+        String memberToken = registerAndGetToken("Invite Member", "invite-member@x.com");
+
+        Long projectId = extractId(
+                mvc.perform(post("/api/projects")
+                                .header("Authorization", bearer(ownerToken))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"name\":\"Invite Project\"}"))
+                        .andExpect(status().isOk())
+                        .andReturn()
+        );
+
+        MvcResult inviteResult = mvc.perform(post("/api/projects/" + projectId + "/invites")
+                        .header("Authorization", bearer(ownerToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"maxUses\":1,\"expiresInHours\":24}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").exists())
+                .andReturn();
+
+        JsonNode inviteBody = objectMapper.readTree(inviteResult.getResponse().getContentAsString());
+        String token = inviteBody.get("token").asText();
+
+        mvc.perform(post("/api/invites/" + token + "/accept")
+                        .header("Authorization", bearer(memberToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.role").value("MEMBER"))
+                .andExpect(jsonPath("$.project.id").value(projectId));
+
+        mvc.perform(get("/api/projects")
+                        .header("Authorization", bearer(memberToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(projectId));
+    }
+
+    @Test
+    void nonMemberCannotAccessProjectResources() throws Exception {
+        String ownerToken = registerAndGetToken("Sec Owner", "sec-owner@x.com");
+        String outsiderToken = registerAndGetToken("Sec Outsider", "sec-outsider@x.com");
+
+        Long projectId = extractId(
+                mvc.perform(post("/api/projects")
+                                .header("Authorization", bearer(ownerToken))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"name\":\"Restricted Project\"}"))
+                        .andExpect(status().isOk())
+                        .andReturn()
+        );
+
+        mvc.perform(get("/api/projects/" + projectId)
+                        .header("Authorization", bearer(outsiderToken)))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(get("/api/projects/" + projectId + "/tasks")
+                        .header("Authorization", bearer(outsiderToken)))
+                .andExpect(status().isForbidden());
+    }
+
     private String registerAndGetToken(String name, String email) throws Exception {
         MvcResult result = mvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)

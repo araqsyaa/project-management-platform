@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router';
+import { useNavigate, Link, useSearchParams } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { t } from '../i18n/translations';
 import { Button } from '../components/ui/button';
@@ -13,6 +13,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -22,7 +23,8 @@ export default function LoginPage() {
     try {
       const ok = await login(email, password);
       if (ok) {
-        navigate('/dashboard');
+        const redirect = searchParams.get('redirect');
+        navigate(redirect || '/dashboard');
       } else {
         setError(t.loginError);
       }
@@ -90,7 +92,10 @@ export default function LoginPage() {
 
         <p className="text-center text-sm text-foreground/70">
           Don&apos;t have an account?{' '}
-          <Link to="/register" style={{ color: '#6246EA', fontWeight: 500 }}>
+          <Link
+            to={`/register${searchParams.get('redirect') ? `?redirect=${encodeURIComponent(searchParams.get('redirect') || '')}` : ''}`}
+            style={{ color: '#6246EA', fontWeight: 500 }}
+          >
             Register
           </Link>
         </p>

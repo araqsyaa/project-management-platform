@@ -114,6 +114,30 @@ export const api = {
     request<void>(`/projects/${id}`, {
       method: 'DELETE',
     }),
+  projectMembers: (projectId: string) =>
+    request<ApiProjectMembership[]>(`/projects/${projectId}/members`),
+  updateProjectMemberRole: (projectId: string, userId: string, role: 'OWNER' | 'MEMBER') =>
+    request<ApiProjectMembership>(`/projects/${projectId}/members/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ role }),
+    }),
+  removeProjectMember: (projectId: string, userId: string) =>
+    request<void>(`/projects/${projectId}/members/${userId}`, {
+      method: 'DELETE',
+    }),
+  createProjectInvite: (projectId: string, payload?: { expiresInHours?: number; maxUses?: number }) =>
+    request<ApiProjectInvite>(`/projects/${projectId}/invites`, {
+      method: 'POST',
+      body: JSON.stringify(payload ?? {}),
+    }),
+  projectInvites: (projectId: string) =>
+    request<ApiProjectInvite[]>(`/projects/${projectId}/invites`),
+  inviteDetails: (token: string) =>
+    request<ApiInviteDetails>(`/invites/${token}`),
+  acceptProjectInvite: (token: string) =>
+    request<ApiProjectMembership>(`/invites/${token}/accept`, {
+      method: 'POST',
+    }),
   tasks: () => request<ApiTask[]>('/tasks'),
   projectTasks: (projectId: string) => request<ApiTask[]>(`/projects/${projectId}/tasks`),
   milestones: (projectId: string) => request<ApiMilestone[]>(`/projects/${projectId}/milestones`),
@@ -231,6 +255,38 @@ export interface ApiProject {
   startDate?: string;
   endDate?: string;
   team?: ApiTeam;
+}
+
+export interface ApiProjectMembership {
+  id: number;
+  role: 'OWNER' | 'MEMBER';
+  joinedAt: string;
+  user: ApiUser;
+  project: ApiProject;
+}
+
+export interface ApiProjectInvite {
+  id: number;
+  token: string;
+  expiresAt: string;
+  maxUses: number;
+  usedCount: number;
+  revoked: boolean;
+  createdAt: string;
+  project: ApiProject;
+  createdBy: ApiUser;
+}
+
+export interface ApiInviteDetails {
+  token: string;
+  projectId: number;
+  projectName: string;
+  expiresAt: string;
+  revoked: boolean;
+  usedCount: number;
+  maxUses: number;
+  expired: boolean;
+  usageExceeded: boolean;
 }
 
 export interface ApiTask {

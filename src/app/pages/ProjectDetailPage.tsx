@@ -7,7 +7,7 @@ import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Calendar, Clock, MessageSquare, Send, User, Plus, Pencil, Trash2 } from 'lucide-react';
-import { getProjectProgress, useProjects, useTasks, useMilestones, useUsers } from '../api/useApi';
+import { getProjectProgress, useProjects, useTasks, useMilestones, useProjectMembers, useProjectInvites, useUsers } from '../api/useApi';
 import { api, ApiComment, ApiTask, getStoredUser } from '../api/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Input } from '../components/ui/input';
@@ -232,6 +232,8 @@ export default function ProjectDetailPage() {
   const { tasks: apiTasks, loading: tasksLoading, refresh: refreshTasks } = useTasks(projectId || '');
   const { milestones, loading: milestonesLoading, refresh: refreshMilestones } = useMilestones(projectId || '');
   const { users } = useUsers();
+  const { members, refresh: refreshMembers } = useProjectMembers(projectId || '');
+  const { invites, refresh: refreshInvites } = useProjectInvites(projectId || '');
   const { user } = useAuth();
 
   const [tasks, setTasks] = useState<FrontendTask[]>([]);
@@ -250,6 +252,7 @@ export default function ProjectDetailPage() {
   const [newComment, setNewComment] = useState('');
   const storedUser = getStoredUser();
   const currentUserId = user?.id || (storedUser ? String(storedUser.id) : '');
+  const [isInviting, setIsInviting] = useState(false);
 
   useEffect(() => {
     if (!projectId) return;
@@ -341,7 +344,10 @@ export default function ProjectDetailPage() {
   }
 
   const getAssigneeName = (assigneeId: string) =>
-    users.find((u) => u.id === assigneeId)?.name || 'Unassigned';
+    members.find((m) => m.userId === assigneeId)?.userName || users.find((u) => u.id === assigneeId)?.name || 'Unassigned';
+  const currentMembership = members.find((member) => member.userId === currentUserId);
+  const isOwner = currentMembership?.role === 'owner';
+  const latestInvite = invites[0];
 
   const columns: { status: StatusKey; title: string }[] = [
     { status: 'backlog', title: t.backlog },
@@ -537,6 +543,44 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const handleCreateInviteLink = async () => {
+    if (!projectId || !isOwner) return;
+    try {
+      setIsInviting(true);
+      const invite = await api.createProjectInvite(projectId, { expiresInHours: 72, maxUses: 1 });
+      const url = `${window.location.origin}/invite/${invite.token}`;
+      await navigator.clipboard.writeText(url);
+      await refreshInvites();
+      toast.success('Invite link copied to clipboard', {
+        style: { backgroundColor: '#2CB67D', color: '#FFFFFE' },
+      });
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to create invite link', {
+        style: { backgroundColor: '#E45858', color: '#FFFFFE' },
+      });
+    } finally {
+      setIsInviting(false);
+    }
+  };
+
+  const handleRemoveMember = async (memberUserId: string) => {
+    if (!projectId || !isOwner) return;
+    if (!window.confirm('Remove this member from the project?')) return;
+    try {
+      await api.removeProjectMember(projectId, memberUserId);
+      await refreshMembers();
+      toast.success('Member removed', {
+        style: { backgroundColor: '#2CB67D', color: '#FFFFFE' },
+      });
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to remove member', {
+        style: { backgroundColor: '#E45858', color: '#FFFFFE' },
+      });
+    }
+  };
+
   return (
       <div className="space-y-6">
         {/* Project header */}
@@ -569,6 +613,44 @@ export default function ProjectDetailPage() {
             }}
           />
         </div>
+
+        <Card className="border-foreground/10">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="font-semibold">Project Members</h3>
+              {isOwner && (
+                <Button size="sm" onClick={handleCreateInviteLink} disabled={isInviting}>
+                  {isInviting ? 'Generating...' : 'Generate Invite Link'}
+                </Button>
+              )}
+            </div>
+            {latestInvite && isOwner && (
+              <p className="text-xs text-foreground/60 break-all">
+                Latest invite: {window.location.origin}/invite/{latestInvite.token}
+              </p>
+            )}
+            <div className="space-y-2">
+              {members.map((member) => (
+                <div key={member.id} className="flex items-center justify-between rounded-md border border-foreground/10 px-3 py-2">
+                  <div>
+                    <p className="text-sm font-medium">{member.userName}</p>
+                    <p className="text-xs text-foreground/60">{member.userEmail}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={member.role === 'owner' ? 'default' : 'secondary'}>
+                      {member.role}
+                    </Badge>
+                    {isOwner && member.role !== 'owner' && (
+                      <Button variant="ghost" size="sm" onClick={() => handleRemoveMember(member.userId)}>
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Tabs */}
         <Tabs
@@ -756,9 +838,9 @@ export default function ProjectDetailPage() {
                       <SelectValue placeholder="Select assignee" />
                     </SelectTrigger>
                     <SelectContent>
-                      {users.map((u) => (
-                        <SelectItem key={u.id} value={u.id}>
-                          {u.name}
+                      {members.map((member) => (
+                        <SelectItem key={member.userId} value={member.userId}>
+                          {member.userName}
                         </SelectItem>
                       ))}
                     </SelectContent>

@@ -8,12 +8,15 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -22,6 +25,8 @@ public class AppService {
     private final UserRepository userRepo;
     private final TeamRepository teamRepo;
     private final ProjectRepository projectRepo;
+    private final ProjectMembershipRepository projectMembershipRepo;
+    private final ProjectInviteRepository projectInviteRepo;
     private final MilestoneRepository milestoneRepo;
     private final TaskRepository taskRepo;
     private final CommentRepository commentRepo;
@@ -75,11 +80,50 @@ public class AppService {
     }
 
     // Projects
-    public List<Project> getProjects() { return projectRepo.findAll(); }
-    public Optional<Project> getProject(Long id) { return projectRepo.findById(id); }
-    public List<Project> getProjectsByTeam(Long teamId) { return projectRepo.findByTeamId(teamId); }
+    public List<Project> getProjects(Long actorId) {
+        if (actorId == null) {
+            return List.of();
+        }
+        return projectMembershipRepo.findByUserId(actorId).stream()
+                .map(ProjectMembership::getProject)
+                .filter(Objects::nonNull)
+                .sorted(Comparator.comparing(Project::getId).reversed())
+                .collect(Collectors.toList());
+    }
+    public Optional<Project> getProject(Long id, Long actorId) {
+        Project project = requireProjectMember(id, actorId);
+        return Optional.of(project);
+    }
+    public List<Project> getProjectsByTeam(Long teamId, Long actorId) {
+        if (actorId == null) {
+            return List.of();
+        }
+        List<Long> memberProjectIds = projectMembershipRepo.findByUserId(actorId).stream()
+                .map(ProjectMembership::getProject)
+                .filter(Objects::nonNull)
+                .map(Project::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        if (memberProjectIds.isEmpty()) {
+            return List.of();
+        }
+        return projectRepo.findByTeamId(teamId).stream()
+                .filter(project -> memberProjectIds.contains(project.getId()))
+                .toList();
+    }
     public Project createProject(Project p, Long actorId) {
+        if (actorId == null) {
+            throw new AccessDeniedException("Authentication is required");
+        }
         Project saved = projectRepo.save(p);
+        User owner = userRepo.findById(actorId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        ProjectMembership membership = new ProjectMembership();
+        membership.setProject(saved);
+        membership.setUser(owner);
+        membership.setRole(ProjectMembership.Role.OWNER);
+        membership.setJoinedAt(LocalDateTime.now());
+        projectMembershipRepo.save(membership);
         createActivity(
                 actorId,
                 "project",
@@ -90,11 +134,15 @@ public class AppService {
         return saved;
     }
     public Project updateProject(Project p, Long actorId) {
-        Project existing = projectRepo.findById(p.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Project not found"));
+        Project existing = requireProjectOwner(p.getId(), actorId);
         String previousName = existing.getName();
         LocalDate previousEndDate = existing.getEndDate();
-        Project saved = projectRepo.save(p);
+        existing.setName(p.getName());
+        existing.setDescription(p.getDescription());
+        existing.setStartDate(p.getStartDate());
+        existing.setEndDate(p.getEndDate());
+        existing.setTeam(p.getTeam());
+        Project saved = projectRepo.save(existing);
         String message = !Objects.equals(previousName, saved.getName())
                 ? actorName(actorId) + " renamed project to \"" + saved.getName() + "\""
                 : !Objects.equals(previousEndDate, saved.getEndDate())
@@ -110,8 +158,7 @@ public class AppService {
         return saved;
     }
     public void deleteProject(Long id, Long actorId) {
-        Project existing = projectRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Project not found"));
+        Project existing = requireProjectOwner(id, actorId);
 
         List<Task> projectTasks = taskRepo.findByProjectId(id);
         if (!projectTasks.isEmpty()) {
@@ -121,6 +168,14 @@ public class AppService {
         List<Milestone> projectMilestones = milestoneRepo.findByProjectId(id);
         if (!projectMilestones.isEmpty()) {
             milestoneRepo.deleteAll(projectMilestones);
+        }
+        List<ProjectInvite> projectInvites = projectInviteRepo.findByProjectIdOrderByCreatedAtDesc(id);
+        if (!projectInvites.isEmpty()) {
+            projectInviteRepo.deleteAll(projectInvites);
+        }
+        List<ProjectMembership> memberships = projectMembershipRepo.findByProjectId(id);
+        if (!memberships.isEmpty()) {
+            projectMembershipRepo.deleteAll(memberships);
         }
 
         String projectName = existing.getName();
@@ -136,9 +191,18 @@ public class AppService {
     }
 
     // Milestones
-    public List<Milestone> getMilestones(Long projectId) { return milestoneRepo.findByProjectId(projectId); }
-    public Optional<Milestone> getMilestone(Long id) { return milestoneRepo.findById(id); }
+    public List<Milestone> getMilestones(Long projectId, Long actorId) {
+        requireProjectMember(projectId, actorId);
+        return milestoneRepo.findByProjectId(projectId);
+    }
+    public Optional<Milestone> getMilestone(Long id, Long actorId) {
+        Milestone milestone = milestoneRepo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Milestone not found"));
+        requireProjectMember(milestone.getProject().getId(), actorId);
+        return Optional.of(milestone);
+    }
     public Milestone createMilestone(Long projectId, Milestone m, Long actorId) {
+        requireProjectMember(projectId, actorId);
         m.setProject(projectRepo.findById(projectId).orElseThrow());
         Milestone created = milestoneRepo.save(m);
         createActivity(
@@ -152,6 +216,7 @@ public class AppService {
     }
     public Milestone updateMilestone(Long projectId, Long milestoneId, String name, String description,
                                      LocalDate dueDate, List<Long> taskIds, Long actorId) {
+        requireProjectMember(projectId, actorId);
         Milestone m = milestoneRepo.findById(milestoneId)
                 .filter(mil -> mil.getProject() != null && mil.getProject().getId().equals(projectId))
                 .orElseThrow(() -> new IllegalArgumentException("Milestone not found"));
@@ -188,6 +253,7 @@ public class AppService {
         return saved;
     }
     public void deleteMilestone(Long projectId, Long milestoneId, Long actorId) {
+        requireProjectMember(projectId, actorId);
         Milestone m = milestoneRepo.findById(milestoneId)
                 .filter(mil -> mil.getProject() != null && mil.getProject().getId().equals(projectId))
                 .orElseThrow(() -> new IllegalArgumentException("Milestone not found"));
@@ -209,11 +275,49 @@ public class AppService {
     }
 
     // Tasks
-    public List<Task> getTasks() { return taskRepo.findAll(); }
-    public Optional<Task> getTask(Long id) { return taskRepo.findById(id); }
-    public List<Task> getTasksByProject(Long projectId) { return taskRepo.findByProjectId(projectId); }
-    public List<Task> getTasksByAssignee(Long userId) { return taskRepo.findByAssigneeId(userId); }
+    public List<Task> getTasks(Long actorId) {
+        if (actorId == null) {
+            return List.of();
+        }
+        List<Long> memberProjectIds = projectMembershipRepo.findByUserId(actorId).stream()
+                .map(ProjectMembership::getProject)
+                .filter(Objects::nonNull)
+                .map(Project::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        return taskRepo.findAll().stream()
+                .filter(task -> task.getProject() != null && memberProjectIds.contains(task.getProject().getId()))
+                .toList();
+    }
+    public Optional<Task> getTask(Long id, Long actorId) {
+        Task task = taskRepo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Task not found"));
+        requireProjectMember(task.getProject().getId(), actorId);
+        return Optional.of(task);
+    }
+    public List<Task> getTasksByProject(Long projectId, Long actorId) {
+        requireProjectMember(projectId, actorId);
+        return taskRepo.findByProjectId(projectId);
+    }
+    public List<Task> getTasksByAssignee(Long userId, Long actorId) {
+        if (actorId == null) {
+            return List.of();
+        }
+        List<Long> memberProjectIds = projectMembershipRepo.findByUserId(actorId).stream()
+                .map(ProjectMembership::getProject)
+                .filter(Objects::nonNull)
+                .map(Project::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        return taskRepo.findByAssigneeId(userId).stream()
+                .filter(task -> task.getProject() != null && memberProjectIds.contains(task.getProject().getId()))
+                .toList();
+    }
     public Task createTask(Task t, Long actorId) {
+        if (t.getProject() == null || t.getProject().getId() == null) {
+            throw new IllegalArgumentException("Task project is required");
+        }
+        requireProjectMember(t.getProject().getId(), actorId);
         Task task = new Task();
         applyTaskChanges(task, t);
         Task saved = taskRepo.save(task);
@@ -230,6 +334,10 @@ public class AppService {
     public Task updateTask(Task t, Long actorId) {
         Task existing = taskRepo.findById(t.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Task not found"));
+        requireProjectMember(existing.getProject().getId(), actorId);
+        if (t.getProject() != null && t.getProject().getId() != null) {
+            requireProjectMember(t.getProject().getId(), actorId);
+        }
         Milestone previousMilestone = existing.getMilestone();
         Task.Status previousStatus = existing.getStatus();
         Task.Priority previousPriority = existing.getPriority();
@@ -249,9 +357,10 @@ public class AppService {
         );
         return saved;
     }
-    public void deleteTask(Long id) {
+    public void deleteTask(Long id, Long actorId) {
         Task existing = taskRepo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Task not found"));
+        requireProjectMember(existing.getProject().getId(), actorId);
         Milestone milestone = existing.getMilestone();
         taskRepo.delete(existing);
         updateMilestoneCompletion(milestone);
@@ -264,11 +373,18 @@ public class AppService {
     }
 
     // Comments
-    public List<Comment> getComments(Long taskId) { return commentRepo.findByTaskIdOrderByCreatedAtAsc(taskId); }
+    public List<Comment> getComments(Long taskId, Long actorId) {
+        Task task = taskRepo.findById(taskId)
+                .orElseThrow(() -> new IllegalArgumentException("Task not found"));
+        requireProjectMember(task.getProject().getId(), actorId);
+        return commentRepo.findByTaskIdOrderByCreatedAtAsc(taskId);
+    }
     public Comment createComment(Long taskId, Long userId, String content) {
         Comment c = new Comment();
         c.setContent(content);
-        c.setTask(taskRepo.findById(taskId).orElseThrow());
+        Task task = taskRepo.findById(taskId).orElseThrow();
+        requireProjectMember(task.getProject().getId(), userId);
+        c.setTask(task);
         c.setUser(userRepo.findById(userId).orElseThrow());
         Comment saved = commentRepo.save(c);
         createActivity(
@@ -306,6 +422,9 @@ public class AppService {
     }
 
     public void deleteComment(Long taskId, Long commentId, Long userId) {
+        Task task = taskRepo.findById(taskId)
+                .orElseThrow(() -> new IllegalArgumentException("Task not found"));
+        requireProjectMember(task.getProject().getId(), userId);
         Comment comment = commentRepo.findById(commentId)
                 .filter(existing -> existing.getTask() != null && existing.getTask().getId().equals(taskId))
                 .orElseThrow(() -> new IllegalArgumentException("Comment not found"));
@@ -313,6 +432,141 @@ public class AppService {
             throw new AccessDeniedException("You can delete only your own comments");
         }
         commentRepo.delete(comment);
+    }
+
+    public Project requireProjectMember(Long projectId, Long actorId) {
+        if (actorId == null) {
+            throw new AccessDeniedException("Authentication is required");
+        }
+        Project project = projectRepo.findById(projectId)
+                .orElseThrow(() -> new IllegalArgumentException("Project not found"));
+        if (!projectMembershipRepo.existsByProjectIdAndUserId(projectId, actorId)) {
+            throw new AccessDeniedException("You are not a member of this project");
+        }
+        return project;
+    }
+
+    public Project requireProjectOwner(Long projectId, Long actorId) {
+        Project project = requireProjectMember(projectId, actorId);
+        ProjectMembership membership = projectMembershipRepo.findByProjectIdAndUserId(projectId, actorId)
+                .orElseThrow(() -> new AccessDeniedException("Project membership not found"));
+        if (membership.getRole() != ProjectMembership.Role.OWNER) {
+            throw new AccessDeniedException("Only project owner can perform this action");
+        }
+        return project;
+    }
+
+    public List<ProjectMembership> getProjectMembers(Long projectId, Long actorId) {
+        requireProjectMember(projectId, actorId);
+        return projectMembershipRepo.findByProjectId(projectId);
+    }
+
+    public ProjectMembership updateProjectMemberRole(Long projectId, Long memberUserId, ProjectMembership.Role role, Long actorId) {
+        requireProjectOwner(projectId, actorId);
+        ProjectMembership membership = projectMembershipRepo.findByProjectIdAndUserId(projectId, memberUserId)
+                .orElseThrow(() -> new IllegalArgumentException("Project membership not found"));
+        if (role == ProjectMembership.Role.OWNER && !Objects.equals(memberUserId, actorId)) {
+            ProjectMembership actorMembership = projectMembershipRepo.findByProjectIdAndUserId(projectId, actorId)
+                    .orElseThrow(() -> new IllegalArgumentException("Owner membership not found"));
+            actorMembership.setRole(ProjectMembership.Role.MEMBER);
+            projectMembershipRepo.save(actorMembership);
+        }
+        membership.setRole(role);
+        return projectMembershipRepo.save(membership);
+    }
+
+    public void removeProjectMember(Long projectId, Long memberUserId, Long actorId) {
+        requireProjectOwner(projectId, actorId);
+        if (Objects.equals(memberUserId, actorId)) {
+            throw new IllegalArgumentException("Owner cannot remove themselves from the project");
+        }
+        ProjectMembership membership = projectMembershipRepo.findByProjectIdAndUserId(projectId, memberUserId)
+                .orElseThrow(() -> new IllegalArgumentException("Project membership not found"));
+        projectMembershipRepo.delete(membership);
+    }
+
+    public ProjectInvite createProjectInvite(Long projectId, Long actorId, Integer expiresInHours, Integer maxUses) {
+        Project project = requireProjectOwner(projectId, actorId);
+        User actor = userRepo.findById(actorId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        ProjectInvite invite = new ProjectInvite();
+        invite.setProject(project);
+        invite.setCreatedBy(actor);
+        invite.setToken(UUID.randomUUID().toString());
+        invite.setMaxUses(maxUses != null && maxUses > 0 ? maxUses : 1);
+        int ttlHours = expiresInHours != null && expiresInHours > 0 ? expiresInHours : 72;
+        invite.setExpiresAt(LocalDateTime.now().plusHours(ttlHours));
+        invite.setUsedCount(0);
+        invite.setRevoked(false);
+        invite.setCreatedAt(LocalDateTime.now());
+
+        return projectInviteRepo.save(invite);
+    }
+
+    public List<ProjectInvite> getProjectInvites(Long projectId, Long actorId) {
+        requireProjectOwner(projectId, actorId);
+        return projectInviteRepo.findByProjectIdOrderByCreatedAtDesc(projectId);
+    }
+
+    public ProjectMembership acceptProjectInvite(String token, Long actorId) {
+        if (actorId == null) {
+            throw new AccessDeniedException("Authentication is required");
+        }
+        ProjectInvite invite = projectInviteRepo.findByToken(token)
+                .orElseThrow(() -> new IllegalArgumentException("Invite not found"));
+        if (invite.isRevoked()) {
+            throw new IllegalArgumentException("Invite has been revoked");
+        }
+        if (invite.isExpired()) {
+            throw new IllegalArgumentException("Invite has expired");
+        }
+        if (invite.isUsageExceeded()) {
+            throw new IllegalArgumentException("Invite usage limit reached");
+        }
+
+        Optional<ProjectMembership> existingMembership = projectMembershipRepo
+                .findByProjectIdAndUserId(invite.getProject().getId(), actorId);
+        if (existingMembership.isPresent()) {
+            return existingMembership.get();
+        }
+
+        User user = userRepo.findById(actorId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        ProjectMembership membership = new ProjectMembership();
+        membership.setProject(invite.getProject());
+        membership.setUser(user);
+        membership.setRole(ProjectMembership.Role.MEMBER);
+        membership.setJoinedAt(LocalDateTime.now());
+        ProjectMembership saved = projectMembershipRepo.save(membership);
+
+        invite.setUsedCount((invite.getUsedCount() == null ? 0 : invite.getUsedCount()) + 1);
+        projectInviteRepo.save(invite);
+
+        createActivity(
+                actorId,
+                "project",
+                "Project joined",
+                actorName(actorId) + " joined project \"" + invite.getProject().getName() + "\"",
+                projectPath(invite.getProject())
+        );
+        return saved;
+    }
+
+    public Map<String, Object> getInviteDetails(String token) {
+        ProjectInvite invite = projectInviteRepo.findByToken(token)
+                .orElseThrow(() -> new IllegalArgumentException("Invite not found"));
+        return Map.of(
+                "token", invite.getToken(),
+                "projectId", invite.getProject().getId(),
+                "projectName", invite.getProject().getName(),
+                "expiresAt", invite.getExpiresAt(),
+                "revoked", invite.isRevoked(),
+                "usedCount", invite.getUsedCount(),
+                "maxUses", invite.getMaxUses(),
+                "expired", invite.isExpired(),
+                "usageExceeded", invite.isUsageExceeded()
+        );
     }
 
     private void applyTaskChanges(Task target, Task source) {

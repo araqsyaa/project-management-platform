@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router';
+import { useNavigate, Link, useSearchParams } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -12,6 +12,7 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { register } = useAuth();
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -21,7 +22,8 @@ export default function RegisterPage() {
     try {
       const ok = await register(name, email, password);
       if (ok) {
-        navigate('/dashboard');
+        const redirect = searchParams.get('redirect');
+        navigate(redirect || '/dashboard');
       } else {
         setError('Registration failed. Email may already exist.');
       }
@@ -94,7 +96,10 @@ export default function RegisterPage() {
 
         <p className="text-center text-sm text-foreground/70">
           Already have an account?{' '}
-          <Link to="/login" style={{ color: '#6246EA', fontWeight: 500 }}>
+          <Link
+            to={`/login${searchParams.get('redirect') ? `?redirect=${encodeURIComponent(searchParams.get('redirect') || '')}` : ''}`}
+            style={{ color: '#6246EA', fontWeight: 500 }}
+          >
             Login
           </Link>
         </p>

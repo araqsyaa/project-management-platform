@@ -30,7 +30,7 @@ export default function ProjectsPage() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTeam, setFilterTeam] = useState<string>('all');
-  const { projects, loading: projectsLoading, error: projectsError } = useProjects();
+  const { projects, loading: projectsLoading, error: projectsError, refresh: refreshProjects } = useProjects();
   const { tasks } = useTasks();
   const { teams, loading: teamsLoading } = useTeams();
   const projectProgressMap = buildProjectProgressMap(tasks);
@@ -137,6 +137,7 @@ export default function ProjectsPage() {
         };
         setProjectList((prev) => [created, ...prev]);
       }
+      await refreshProjects();
 
       setIsProjectModalOpen(false);
       resetProjectForm();
@@ -154,6 +155,7 @@ export default function ProjectsPage() {
       setIsDeleting(true);
       await api.deleteProject(projectToDelete);
       setProjectList((prev) => prev.filter((entry) => entry.id !== projectToDelete));
+      await refreshProjects();
       setProjectToDelete(null);
       setIsDeleteDialogOpen(false);
     } catch (e) {

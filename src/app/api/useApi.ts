@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import { api, ApiActivity, ApiProject, ApiTask, ApiUser, ApiTeam } from './client';
+import { api, ApiActivity, ApiProject, ApiTask, ApiUser, ApiTeam, ApiProjectMembership, ApiProjectInvite } from './client';
 import { FrontendActivity } from '../types/frontend';
 
 export type FrontendProject = ReturnType<typeof mapProject>;
 export type FrontendTask = ReturnType<typeof mapTask>;
 export type FrontendUserSummary = ReturnType<typeof mapUser>;
+export type FrontendProjectMember = ReturnType<typeof mapProjectMember>;
+export type FrontendProjectInvite = ReturnType<typeof mapProjectInvite>;
 
 // Map API types to frontend-compatible format
 function mapProject(p: ApiProject) {
@@ -57,6 +59,32 @@ function mapActivity(activity: ApiActivity): FrontendActivity {
     createdAt: activity.createdAt,
     actorName: activity.user?.name || 'System',
     targetPath: activity.targetPath || '/projects',
+  };
+}
+
+function mapProjectMember(member: ApiProjectMembership) {
+  return {
+    id: String(member.id),
+    projectId: String(member.project.id),
+    userId: String(member.user.id),
+    userName: member.user.name,
+    userEmail: member.user.email,
+    role: member.role === 'OWNER' ? 'owner' as const : 'member' as const,
+    joinedAt: member.joinedAt,
+  };
+}
+
+function mapProjectInvite(invite: ApiProjectInvite) {
+  return {
+    id: String(invite.id),
+    projectId: String(invite.project.id),
+    token: invite.token,
+    expiresAt: invite.expiresAt,
+    maxUses: invite.maxUses,
+    usedCount: invite.usedCount,
+    revoked: invite.revoked,
+    createdAt: invite.createdAt,
+    createdBy: invite.createdBy?.name || 'Unknown',
   };
 }
 
@@ -427,4 +455,56 @@ export function useActivities(limit?: number) {
   }, [limit]);
 
   return { activities: data, loading, error, refresh: loadActivities };
+}
+
+export function useProjectMembers(projectId?: string) {
+  const [data, setData] = useState<FrontendProjectMember[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadMembers = () => {
+    if (!projectId) {
+      setData([]);
+      setLoading(false);
+      return Promise.resolve();
+    }
+    setLoading(true);
+    setError(null);
+    return api.projectMembers(projectId)
+      .then((list) => setData(list.map(mapProjectMember)))
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    void loadMembers();
+  }, [projectId]);
+
+  return { members: data, loading, error, refresh: loadMembers };
+}
+
+export function useProjectInvites(projectId?: string) {
+  const [data, setData] = useState<FrontendProjectInvite[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadInvites = () => {
+    if (!projectId) {
+      setData([]);
+      setLoading(false);
+      return Promise.resolve();
+    }
+    setLoading(true);
+    setError(null);
+    return api.projectInvites(projectId)
+      .then((list) => setData(list.map(mapProjectInvite)))
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    void loadInvites();
+  }, [projectId]);
+
+  return { invites: data, loading, error, refresh: loadInvites };
 }

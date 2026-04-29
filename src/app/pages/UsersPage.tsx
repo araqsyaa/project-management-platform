@@ -1,33 +1,17 @@
 import React, { useState } from 'react';
 import { t } from '../i18n/translations';
-import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Badge } from '../components/ui/badge';
 import { Avatar, AvatarFallback } from '../components/ui/avatar';
-import { Plus, Search, Edit, Trash2 } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useUsers } from '../api/useApi';
-import { api } from '../api/client';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
-import { Label } from '../components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { FrontendUser, Role } from '../types/frontend';
+import { Role } from '../types/frontend';
 
 export default function UsersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const { users, loading, error } = useUsers();
-
-  const [userList, setUserList] = useState<FrontendUser[]>(users);
-  const [isAddUserOpen, setIsAddUserOpen] = useState(false);
-  const [newUserName, setNewUserName] = useState('');
-  const [newUserEmail, setNewUserEmail] = useState('');
-  const [newUserRole, setNewUserRole] = useState<Role>('team_member');
-
-  React.useEffect(() => {
-    setUserList(users);
-  }, [users]);
-
-  const filteredUsers = userList.filter(user =>
+  const filteredUsers = users.filter(user =>
     user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -52,50 +36,13 @@ export default function UsersPage() {
     }
   };
 
-  const handleCreateUser = async () => {
-    if (!newUserName.trim() || !newUserEmail.trim()) return;
-
-    try {
-      const backendRoleMap: Record<Role, string> = {
-        administrator: 'ADMIN',
-        project_manager: 'PROJECT_MANAGER',
-        team_member: 'TEAM_MEMBER',
-        viewer: 'VIEWER',
-      };
-
-      const backendRole = backendRoleMap[newUserRole] ?? 'TEAM_MEMBER';
-
-      const res = await api.auth.register(newUserName, newUserEmail, 'password1234', backendRole);
-
-      const created: FrontendUser = {
-        id: String(res.user.id),
-        name: res.user.name,
-        email: res.user.email,
-        role: newUserRole,
-      };
-
-      setUserList((prev) => [created, ...prev]);
-      setIsAddUserOpen(false);
-      setNewUserName('');
-      setNewUserEmail('');
-      setNewUserRole('team_member');
-    } catch (e) {
-      // In a real app, show a toast; for now, keep it simple
-      console.error(e);
-    }
-  };
-
   if (loading) return <div className="p-8">Loading...</div>;
   if (error) return <div className="p-8 text-red-500">Error: {error}</div>;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl">{t.usersAndRoles}</h1>
-        <Button onClick={() => setIsAddUserOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          {t.addUser}
-        </Button>
+        <h1 className="text-3xl">{t.users}</h1>
       </div>
 
       {/* Search */}
@@ -117,7 +64,6 @@ export default function UsersPage() {
               <TableHead>User</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>{t.role}</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -149,25 +95,6 @@ export default function UsersPage() {
                     {getRoleLabel(user.role)}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      className="h-8 w-8"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      className="h-8 w-8"
-                      style={{ color: '#E45858' }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -180,60 +107,6 @@ export default function UsersPage() {
         </div>
       )}
 
-      {isAddUserOpen && (
-        <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>{t.addUser}</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="new-user-name">Name</Label>
-                <Input
-                  id="new-user-name"
-                  value={newUserName}
-                  onChange={(e) => setNewUserName(e.target.value)}
-                  placeholder="Enter name"
-                  className="border-foreground/20"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="new-user-email">Email</Label>
-                <Input
-                  id="new-user-email"
-                  value={newUserEmail}
-                  onChange={(e) => setNewUserEmail(e.target.value)}
-                  placeholder="Enter email"
-                  className="border-foreground/20"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="new-user-role">Role</Label>
-                <Select value={newUserRole} onValueChange={setNewUserRole}>
-                  <SelectTrigger className="border-foreground/20">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="administrator">{t.administrator}</SelectItem>
-                    <SelectItem value="project_manager">{t.projectManager}</SelectItem>
-                    <SelectItem value="team_member">{t.teamMember}</SelectItem>
-                    <SelectItem value="viewer">{t.viewer}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" onClick={() => setIsAddUserOpen(false)}>
-                  {t.cancel}
-                </Button>
-                <Button onClick={handleCreateUser}>{t.saveChanges}</Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
     </div>
   );
 }
