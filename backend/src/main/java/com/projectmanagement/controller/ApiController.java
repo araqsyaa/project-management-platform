@@ -39,6 +39,12 @@ public class ApiController {
     @GetMapping("/users")
     public List<User> users() { return service.getUsers(); }
 
+    @GetMapping("/users/in-projects")
+    public List<User> usersInMyProjects(Authentication auth) {
+        Long userId = auth != null ? (Long) auth.getPrincipal() : null;
+        return service.getUsersInMyProjects(userId);
+    }
+
     @GetMapping("/users/{id:\\d+}")
     public ResponseEntity<?> user(@PathVariable Long id) {
         return service.getUser(id).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());

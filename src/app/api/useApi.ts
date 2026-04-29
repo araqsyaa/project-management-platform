@@ -363,6 +363,28 @@ export function useUsers() {
   return { users: data, loading, error, refresh: loadUsers };
 }
 
+export function useUsersInMyProjects() {
+  const authRefreshKey = useAuthRefreshKey();
+  const [data, setData] = useState<ReturnType<typeof mapUser>[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadUsers = () => {
+    setLoading(true);
+    setError(null);
+    return api.usersInMyProjects()
+      .then((list) => setData(list.map(mapUser)))
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    void loadUsers();
+  }, [authRefreshKey]);
+
+  return { users: data, loading, error, refresh: loadUsers };
+}
+
 export function useTeams() {
   const authRefreshKey = useAuthRefreshKey();
   const [data, setData] = useState<ApiTeam[]>([]);

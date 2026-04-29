@@ -71,6 +71,28 @@ public class AppService {
         }
         return userRepo.findById(actorId);
     }
+    public List<User> getUsersInMyProjects(Long actorId) {
+        if (actorId == null) {
+            return List.of();
+        }
+        // Get all project IDs that the current user is a member of
+        List<Long> myProjectIds = projectMembershipRepo.findByUserId(actorId).stream()
+                .map(ProjectMembership::getProject)
+                .filter(Objects::nonNull)
+                .map(Project::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        if (myProjectIds.isEmpty()) {
+            return List.of();
+        }
+        // Get all users who are members of any of these projects
+        return projectMembershipRepo.findAll().stream()
+                .filter(pm -> pm.getProject() != null && myProjectIds.contains(pm.getProject().getId()))
+                .map(ProjectMembership::getUser)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+    }
 
     // Teams
     public List<Team> getTeams() { return teamRepo.findAll(); }

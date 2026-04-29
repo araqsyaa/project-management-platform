@@ -80,6 +80,7 @@ export const api = {
     me: () => request<ApiUser>('/users/me'),
   },
   users: () => request<ApiUser[]>('/users'),
+  usersInMyProjects: () => request<ApiUser[]>('/users/in-projects'),
   teams: () => request<ApiTeam[]>('/teams'),
   projects: () => request<ApiProject[]>('/projects'),
   project: (id: string) => request<ApiProject>(`/projects/${id}`),
