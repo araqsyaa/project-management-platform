@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Badge } from '../components/ui/badge';
 import { useProjectMembers, useProjects, useUsersInMyProjects } from '../api/useApi';
+import { useAuth } from '../context/AuthContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 
 type ViewMode = 'all' | 'project';
@@ -16,6 +17,7 @@ interface UserWithProject {
 
 export default function UsersPage() {
   const { projects, loading: projectsLoading, error: projectsError } = useProjects();
+  const { user: currentUser } = useAuth();
   const [viewMode, setViewMode] = useState<ViewMode>('all');
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   
@@ -48,8 +50,7 @@ export default function UsersPage() {
   // Build user list based on view mode
   const displayUsers = useMemo((): UserWithProject[] => {
     if (viewMode === 'all') {
-      // For "All Projects" view, we need to get users from all projects the current user is part of
-      // The API returns users with their project memberships
+      // For "All Projects" view, show users without any special label
       return allProjectUsers.map(user => ({
         id: user.id,
         userName: user.name,
@@ -70,6 +71,11 @@ export default function UsersPage() {
       }));
     }
   }, [viewMode, allProjectUsers, members]);
+
+  // Check if a user is the current authenticated user
+  const isCurrentUser = (userId: string) => {
+    return currentUser && String(currentUser.id) === userId;
+  };
 
   if (projectsLoading) return <div className="p-8">Loading...</div>;
   if (projectsError) return <div className="p-8 text-red-500">Error: {projectsError}</div>;
@@ -141,9 +147,6 @@ export default function UsersPage() {
                     <p className="font-medium">{user.userName}</p>
                     <p className="text-sm text-foreground/60">{user.userEmail}</p>
                   </div>
-                  <Badge variant="secondary">
-                    In Your Projects
-                  </Badge>
                 </div>
               ))}
             </div>
@@ -165,6 +168,11 @@ export default function UsersPage() {
                     <Badge variant={member.role === 'owner' ? 'default' : 'secondary'}>
                       {member.role === 'owner' ? 'Owner' : 'Member'}
                     </Badge>
+                    {isCurrentUser(member.userId) && (
+                      <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">
+                        You
+                      </Badge>
+                    )}
                   </div>
                 </div>
               ))}

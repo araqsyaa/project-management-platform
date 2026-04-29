@@ -3,17 +3,24 @@ import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { useProjects, useProjectMembers, useUsersInMyProjects } from '../api/useApi';
+import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
 
 type ViewMode = 'all' | 'project';
 
 export default function RolesPage() {
   const { projects, loading: projectsLoading } = useProjects();
+  const { user: currentUser } = useAuth();
   const [viewMode, setViewMode] = useState<ViewMode>('all');
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const { members, loading: membersLoading, refresh } = useProjectMembers(selectedProjectId);
   const { users: allProjectUsers, loading: allUsersLoading } = useUsersInMyProjects();
   const [isSaving, setIsSaving] = useState(false);
+
+  // Check if a user is the current authenticated user
+  const isCurrentUser = (userId: string) => {
+    return currentUser && String(currentUser.id) === userId;
+  };
 
   // Get project name by ID
   const getProjectName = (projectId: string) => {
@@ -111,9 +118,6 @@ export default function RolesPage() {
                   <p className="font-medium">{user.name}</p>
                   <p className="text-sm text-foreground/60">{user.email}</p>
                 </div>
-                <Badge variant="secondary">
-                  In Your Projects
-                </Badge>
               </div>
             ))}
           </div>
@@ -130,8 +134,13 @@ export default function RolesPage() {
               </div>
               <div className="flex items-center gap-2">
                 <Badge variant={member.role === 'owner' ? 'default' : 'secondary'}>
-                  {member.role}
+                  {member.role === 'owner' ? 'Owner' : 'Member'}
                 </Badge>
+                {isCurrentUser(member.userId) && (
+                  <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">
+                    You
+                  </Badge>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
