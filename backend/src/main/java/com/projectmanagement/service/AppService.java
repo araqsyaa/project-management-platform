@@ -443,15 +443,17 @@ public class AppService {
     }
 
     public void deleteComment(Long taskId, Long commentId, Long userId) {
-        Task task = taskRepo.findById(taskId)
-                .orElseThrow(() -> new IllegalArgumentException("Task not found"));
-        requireProjectMember(task.getProject().getId(), userId);
         Comment comment = commentRepo.findById(commentId)
                 .filter(existing -> existing.getTask() != null && existing.getTask().getId().equals(taskId))
                 .orElseThrow(() -> new IllegalArgumentException("Comment not found"));
         if (comment.getUser() == null || !comment.getUser().getId().equals(userId)) {
             throw new AccessDeniedException("You can delete only your own comments");
         }
+        Task task = comment.getTask();
+        if (task == null || task.getProject() == null || task.getProject().getId() == null) {
+            throw new IllegalArgumentException("Task not found");
+        }
+        requireProjectMember(task.getProject().getId(), userId);
         commentRepo.delete(comment);
     }
 
