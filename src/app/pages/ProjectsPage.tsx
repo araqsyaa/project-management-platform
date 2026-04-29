@@ -200,7 +200,7 @@ export default function ProjectsPage() {
         </Select>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
         {filteredProjects.map((project) => {
           const projectProgress = projectProgressMap[project.id] ?? 0;
 
@@ -229,6 +229,7 @@ export default function ProjectsPage() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8"
+                            onPointerDown={(e) => e.stopPropagation()}
                             onClick={(e) => e.stopPropagation()}
                           >
                             <MoreVertical className="h-4 w-4" />
@@ -377,7 +378,15 @@ export default function ProjectsPage() {
         </div>
       )}
 
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={(open) => {
+          setIsDeleteDialogOpen(open);
+          if (!open) {
+            setProjectToDelete(null);
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Project?</AlertDialogTitle>
