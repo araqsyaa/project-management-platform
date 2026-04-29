@@ -7,8 +7,6 @@ import { Avatar, AvatarFallback } from '../components/ui/avatar';
 import { Search } from 'lucide-react';
 import { useProjectMembers, useProjects, useUsers } from '../api/useApi';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Button } from '../components/ui/button';
-import { api } from '../api/client';
 import { Role } from '../types/frontend';
 
 export default function UsersPage() {
@@ -16,8 +14,7 @@ export default function UsersPage() {
   const { users, loading, error } = useUsers();
   const { projects } = useProjects();
   const [selectedProjectId, setSelectedProjectId] = useState('');
-  const { members, loading: membersLoading, refresh: refreshMembers } = useProjectMembers(selectedProjectId);
-  const [savingRole, setSavingRole] = useState<string | null>(null);
+  const { members, loading: membersLoading } = useProjectMembers(selectedProjectId);
 
   React.useEffect(() => {
     if (!selectedProjectId && projects.length > 0) {
@@ -52,17 +49,6 @@ export default function UsersPage() {
 
   if (loading) return <div className="p-8">Loading...</div>;
   if (error) return <div className="p-8 text-red-500">Error: {error}</div>;
-
-  const handleToggleMemberRole = async (memberUserId: string, currentRole: 'owner' | 'member') => {
-    if (!selectedProjectId) return;
-    try {
-      setSavingRole(memberUserId);
-      await api.updateProjectMemberRole(selectedProjectId, memberUserId, currentRole === 'owner' ? 'MEMBER' : 'OWNER');
-      await refreshMembers();
-    } finally {
-      setSavingRole(null);
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -167,14 +153,6 @@ export default function UsersPage() {
                   <Badge variant={member.role === 'owner' ? 'default' : 'secondary'}>
                     {member.role}
                   </Badge>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={savingRole === member.userId}
-                    onClick={() => handleToggleMemberRole(member.userId, member.role)}
-                  >
-                    Make {member.role === 'owner' ? 'Member' : 'Owner'}
-                  </Button>
                 </div>
               </div>
             ))}

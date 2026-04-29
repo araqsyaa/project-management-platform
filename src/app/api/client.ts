@@ -54,7 +54,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const text = await res.text();
-    if (res.status === 401 || res.status === 403) {
+    if (res.status === 401) {
       clearToken();
       notifyAuthExpired();
     }

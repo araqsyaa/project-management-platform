@@ -233,7 +233,6 @@ export default function ProjectDetailPage() {
   const { milestones, loading: milestonesLoading, refresh: refreshMilestones } = useMilestones(projectId || '');
   const { users } = useUsers();
   const { members, refresh: refreshMembers } = useProjectMembers(projectId || '');
-  const { invites, refresh: refreshInvites } = useProjectInvites(projectId || '');
   const { user } = useAuth();
 
   const [tasks, setTasks] = useState<FrontendTask[]>([]);
@@ -253,6 +252,9 @@ export default function ProjectDetailPage() {
   const storedUser = getStoredUser();
   const currentUserId = user?.id || (storedUser ? String(storedUser.id) : '');
   const [isInviting, setIsInviting] = useState(false);
+  const currentMembership = members.find((member) => member.userId === currentUserId);
+  const isOwner = currentMembership?.role === 'owner';
+  const { invites, refresh: refreshInvites } = useProjectInvites(projectId || '', Boolean(isOwner));
 
   useEffect(() => {
     if (!projectId) return;
@@ -345,8 +347,6 @@ export default function ProjectDetailPage() {
 
   const getAssigneeName = (assigneeId: string) =>
     members.find((m) => m.userId === assigneeId)?.userName || users.find((u) => u.id === assigneeId)?.name || 'Unassigned';
-  const currentMembership = members.find((member) => member.userId === currentUserId);
-  const isOwner = currentMembership?.role === 'owner';
   const latestInvite = invites[0];
 
   const columns: { status: StatusKey; title: string }[] = [

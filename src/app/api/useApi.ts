@@ -504,14 +504,14 @@ export function useProjectMembers(projectId?: string) {
   return { members: data, loading, error, refresh: loadMembers };
 }
 
-export function useProjectInvites(projectId?: string) {
+export function useProjectInvites(projectId?: string, enabled = true) {
   const authRefreshKey = useAuthRefreshKey();
   const [data, setData] = useState<FrontendProjectInvite[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const loadInvites = () => {
-    if (!projectId) {
+    if (!projectId || !enabled) {
       setData([]);
       setLoading(false);
       return Promise.resolve();
@@ -526,7 +526,7 @@ export function useProjectInvites(projectId?: string) {
 
   useEffect(() => {
     void loadInvites();
-  }, [projectId, authRefreshKey]);
+  }, [projectId, enabled, authRefreshKey]);
 
   return { invites: data, loading, error, refresh: loadInvites };
 }
