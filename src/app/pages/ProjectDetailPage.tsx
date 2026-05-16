@@ -615,33 +615,38 @@ export default function ProjectDetailPage() {
         </div>
 
         <Card className="border-foreground/10">
-          <CardContent className="p-4 space-y-3">
+          <CardContent className="space-y-3 p-4">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="font-semibold">Project Members</h3>
+              <div>
+                <h3 className="text-xl font-semibold">Project Members</h3>
+                <p className="text-sm text-foreground/60">Manage access and invitation links for this project.</p>
+              </div>
               {isOwner && (
-                <Button size="sm" onClick={handleCreateInviteLink} disabled={isInviting}>
+                <Button size="sm" className="h-10 px-4 text-base" onClick={handleCreateInviteLink} disabled={isInviting}>
                   {isInviting ? 'Generating...' : 'Generate Invite Link'}
                 </Button>
               )}
             </div>
             {latestInvite && isOwner && (
-              <p className="text-xs text-foreground/60 break-all">
-                Latest invite: {window.location.origin}/invite/{latestInvite.token}
-              </p>
+              <div className="rounded-md border border-foreground/10 bg-secondary/5 px-3 py-2">
+                <p className="break-all text-sm text-foreground/70">
+                  <span className="font-medium text-foreground">Latest invite:</span> {window.location.origin}/invite/{latestInvite.token}
+                </p>
+              </div>
             )}
-            <div className="space-y-2">
+            <div className="grid max-h-56 gap-2 overflow-y-auto pr-1 md:grid-cols-2">
               {members.map((member) => (
-                <div key={member.id} className="flex items-center justify-between rounded-md border border-foreground/10 px-3 py-2">
-                  <div>
-                    <p className="text-sm font-medium">{member.userName}</p>
-                    <p className="text-xs text-foreground/60">{member.userEmail}</p>
+                <div key={member.id} className="flex items-center justify-between gap-3 rounded-md border border-foreground/10 px-3 py-2.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-base font-semibold">{member.userName}</p>
+                    <p className="truncate text-sm text-foreground/60">{member.userEmail}</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={member.role === 'owner' ? 'default' : 'secondary'}>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Badge variant={member.role === 'owner' ? 'default' : 'secondary'} className="text-sm">
                       {member.role}
                     </Badge>
                     {isOwner && member.role !== 'owner' && (
-                      <Button variant="ghost" size="sm" onClick={() => handleRemoveMember(member.userId)}>
+                      <Button variant="ghost" size="sm" className="h-8 px-3 text-sm" onClick={() => handleRemoveMember(member.userId)}>
                         Remove
                       </Button>
                     )}

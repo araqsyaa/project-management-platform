@@ -810,34 +810,34 @@ export default function ReportsPage() {
         </div>
 
         <Card className="border-foreground/10">
-          <CardHeader>
-            <CardTitle>Tasks by Status</CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-2xl">Tasks by Status</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-[180px_1fr] items-center gap-4">
-              <div className="space-y-3 self-start pt-2">
+          <CardContent className="pt-2">
+            <div className="grid grid-cols-[240px_1fr] items-center gap-3">
+              <div className="space-y-2 self-center">
                 {tasksByStatus.map((entry) => (
-                  <div key={entry.name} className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
+                  <div key={entry.name} className="flex items-center justify-between gap-4 rounded-lg border border-foreground/10 bg-secondary/5 px-4 py-3">
+                    <div className="flex min-w-0 items-center gap-3">
                       <span
-                        className="inline-block h-2.5 w-2.5 rounded-full"
+                        className="inline-block h-3.5 w-3.5 shrink-0 rounded-full"
                         style={{ backgroundColor: entry.color }}
                       />
-                      <span className="text-sm font-medium" style={{ color: entry.color }}>
+                      <span className="truncate text-lg font-semibold" style={{ color: entry.color }}>
                         {entry.name}
                       </span>
                     </div>
-                    <span className="text-sm text-foreground/60">{entry.value}</span>
+                    <span className="text-2xl font-semibold text-foreground">{entry.value}</span>
                   </div>
                 ))}
               </div>
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={240}>
                 <PieChart>
                   <Pie
                     data={tasksByStatus}
                     cx="50%"
                     cy="50%"
-                    outerRadius={100}
+                    outerRadius={86}
                     fill="#8884d8"
                     dataKey="value"
                   >
