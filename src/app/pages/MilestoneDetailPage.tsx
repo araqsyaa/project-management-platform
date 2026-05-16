@@ -158,7 +158,7 @@ export default function MilestoneDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-4xl space-y-6">
       <div className="flex items-center gap-4">
         <Button
           variant="ghost"
@@ -169,31 +169,31 @@ export default function MilestoneDetailPage() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>
-          <h1 className="text-2xl font-semibold">
+          <h1 className="text-3xl font-semibold leading-tight">
             {isNew ? t.addMilestone : t.edit}
           </h1>
-          <p className="text-sm text-foreground/60">
+          <p className="mt-1 text-lg text-foreground/60">
             {projectTitle}
           </p>
         </div>
       </div>
 
       <Card className="border-foreground/10">
-        <CardContent className="p-6 space-y-6">
+        <CardContent className="space-y-7 p-8">
           {!isNew && milestone && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-3 rounded-lg border border-foreground/10 bg-secondary/5 px-4 py-3">
               {milestone.completed ? (
-                <Badge style={{ backgroundColor: '#2CB67D20', color: '#2CB67D' }}>
-                  <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                <Badge className="text-sm" style={{ backgroundColor: '#2CB67D20', color: '#2CB67D' }}>
+                  <CheckCircle2 className="mr-1 h-4 w-4" />
                   Completed
                 </Badge>
               ) : (
-                <Badge style={{ backgroundColor: '#6246EA20', color: '#6246EA' }}>
-                  <Circle className="h-3.5 w-3.5 mr-1" />
+                <Badge className="text-sm" style={{ backgroundColor: '#6246EA20', color: '#6246EA' }}>
+                  <Circle className="mr-1 h-4 w-4" />
                   In Progress
                 </Badge>
               )}
-              <span className="text-sm text-foreground/60">
+              <span className="text-base text-foreground/70">
                 {milestone.completed
                   ? 'All assigned tasks are done.'
                   : 'Complete all assigned tasks to mark this milestone done.'}
@@ -201,62 +201,62 @@ export default function MilestoneDetailPage() {
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label htmlFor="milestone-name">Title *</Label>
+          <div className="max-w-2xl space-y-2.5">
+            <Label htmlFor="milestone-name" className="text-lg font-semibold">Title *</Label>
             <Input
               id="milestone-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="border border-foreground/20"
+              className="h-12 border border-foreground/20 text-lg placeholder:text-base"
               placeholder="Milestone title"
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="milestone-desc">{t.description} (optional)</Label>
+          <div className="max-w-2xl space-y-2.5">
+            <Label htmlFor="milestone-desc" className="text-lg font-semibold">{t.description} (optional)</Label>
             <Textarea
               id="milestone-desc"
-              rows={3}
+              rows={4}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="border border-foreground/20"
+              className="border border-foreground/20 text-lg placeholder:text-base"
               placeholder="Describe this milestone"
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="milestone-due">{t.dueDate}</Label>
+          <div className="max-w-sm space-y-2.5">
+            <Label htmlFor="milestone-due" className="text-lg font-semibold">{t.dueDate}</Label>
             <Input
               id="milestone-due"
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
-              className="border border-foreground/20"
+              className="h-12 border border-foreground/20 text-lg"
             />
           </div>
 
           <div className="space-y-3">
-            <Label>Tasks in this milestone</Label>
-            <p className="text-sm text-foreground/60">
+            <Label className="text-lg font-semibold">Tasks in this milestone</Label>
+            <p className="max-w-2xl text-base leading-relaxed text-foreground/65">
               Select which tasks belong to this milestone. The milestone is marked done when all assigned tasks are completed.
             </p>
-            <div className="border border-foreground/20 rounded-lg p-4 max-h-64 overflow-y-auto space-y-2">
+            <div className="max-h-72 max-w-3xl space-y-2 overflow-y-auto rounded-lg border border-foreground/20 p-4">
               {tasks.length === 0 ? (
-                <p className="text-sm text-foreground/50">No tasks in this project yet.</p>
+                <p className="text-base text-foreground/55">No tasks in this project yet.</p>
               ) : (
                 tasks.map((task) => (
                   <label
                     key={task.id}
-                    className="flex items-center gap-3 cursor-pointer hover:bg-foreground/5 rounded p-2 -mx-2"
+                    className="flex cursor-pointer flex-wrap items-center gap-3 rounded px-3 py-2.5 hover:bg-foreground/5"
                   >
                     <input
                       type="checkbox"
                       checked={selectedTaskIds.includes(String(task.id))}
                       onChange={() => toggleTask(String(task.id))}
-                      className="rounded border-foreground/30"
+                      className="h-5 w-5 rounded border-foreground/30"
                     />
-                    <span className="font-medium text-sm">{task.title}</span>
-                    <span className="text-xs text-foreground/50">ID: {task.id}</span>
+                    <span className="text-base font-medium">{task.title}</span>
+                    <span className="text-sm text-foreground/50">ID: {task.id}</span>
                     {task.status && (
-                      <Badge variant="secondary" className="text-xs capitalize">
+                      <Badge variant="secondary" className="text-sm capitalize">
                         {task.status.toLowerCase().replace('_', ' ')}
                       </Badge>
                     )}
@@ -266,13 +266,13 @@ export default function MilestoneDetailPage() {
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex flex-wrap justify-end gap-3 border-t border-foreground/10 pt-5">
             {!isNew && (
               <Button
                 variant="outline"
                 onClick={handleDelete}
                 disabled={saving || deleting}
-                className="mr-auto text-destructive hover:text-destructive"
+                className="mr-auto h-11 px-5 text-base text-destructive hover:text-destructive"
               >
                 <Trash2 className="mr-2 h-4 w-4" />
                 {deleting ? 'Deleting...' : t.delete}
@@ -282,10 +282,11 @@ export default function MilestoneDetailPage() {
               variant="outline"
               onClick={() => navigate(`/projects/${projectId}?tab=milestones`)}
               disabled={saving || deleting}
+              className="h-11 px-5 text-base"
             >
               {t.cancel}
             </Button>
-            <Button onClick={handleSave} disabled={saving || deleting}>
+            <Button onClick={handleSave} disabled={saving || deleting} className="h-11 px-6 text-base">
               {saving ? 'Saving...' : isNew ? t.create : t.save}
             </Button>
           </div>
