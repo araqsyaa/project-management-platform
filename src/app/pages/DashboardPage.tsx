@@ -150,52 +150,55 @@ export default function DashboardPage() {
       </div>
 
       <Card className="border-foreground/10">
-        <CardHeader>
+        <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-4">
-            <CardTitle>{t.recentActivity}</CardTitle>
+            <div>
+              <CardTitle className="text-2xl">{t.recentActivity}</CardTitle>
+              <p className="mt-1 text-base text-foreground/60">Latest project updates and team actions</p>
+            </div>
             <Button
               variant="ghost"
               size="sm"
-              className="hover:bg-transparent"
+              className="h-10 px-3 text-base hover:bg-transparent"
               style={{ color: '#6246EA' }}
               onClick={() => navigate('/activities')}
             >
               {t.viewAll}
-              <ArrowRight className="ml-2 h-4 w-4" />
+              <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-2">
           {activitiesLoading ? (
-            <div className="flex h-[250px] items-center justify-center text-sm text-foreground/60">
+            <div className="flex h-[220px] items-center justify-center text-lg text-foreground/60">
               Loading activity...
             </div>
           ) : activities.length === 0 ? (
-            <div className="flex h-[250px] items-center justify-center text-sm text-foreground/60">
+            <div className="flex h-[220px] items-center justify-center text-lg text-foreground/60">
               No recent activity yet.
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
               {activities.map((activity) => {
                 const Icon = getActivityIcon(activity.type);
                 return (
                   <button
                     key={activity.id}
                     type="button"
-                    className="flex w-full items-start gap-3 rounded-lg border border-foreground/10 p-3 text-left transition-colors hover:bg-secondary/40"
+                    className="flex min-h-36 w-full items-start gap-4 rounded-lg border border-foreground/10 bg-background p-5 text-left transition-colors hover:bg-secondary/40"
                     onClick={() => navigate(activity.targetPath)}
                   >
-                    <div className="mt-0.5 h-9 w-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#6246EA20' }}>
-                      <Icon className="h-4 w-4" style={{ color: '#6246EA' }} />
+                    <div className="mt-1 flex h-12 w-12 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: '#6246EA20' }}>
+                      <Icon className="h-6 w-6" style={{ color: '#6246EA' }} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge variant="secondary" className="capitalize">{activity.type}</Badge>
-                        <span className="text-xs text-foreground/50">{formatTimeAgo(activity.createdAt)}</span>
+                      <div className="mb-2 flex flex-wrap items-center gap-2">
+                        <Badge variant="secondary" className="text-sm capitalize">{activity.type}</Badge>
+                        <span className="text-sm font-medium text-foreground/50">{formatTimeAgo(activity.createdAt)}</span>
                       </div>
-                      <p className="text-sm font-medium">{activity.title}</p>
-                      <p className="text-sm text-foreground/70 mt-1">{activity.message}</p>
-                      <p className="text-xs text-foreground/50 mt-2">{activity.actorName}</p>
+                      <p className="text-lg font-semibold leading-snug">{activity.title}</p>
+                      <p className="mt-2 text-base leading-relaxed text-foreground/70">{activity.message}</p>
+                      <p className="mt-3 text-sm font-medium text-foreground/50">{activity.actorName}</p>
                     </div>
                   </button>
                 );
