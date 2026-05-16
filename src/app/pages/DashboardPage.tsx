@@ -133,14 +133,14 @@ export default function DashboardPage() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-foreground/60">{stat.title}</p>
-                    <p className="text-3xl mt-2">{stat.value}</p>
+                    <p className="text-lg font-medium text-foreground/65">{stat.title}</p>
+                    <p className="mt-2 text-5xl font-semibold leading-none">{stat.value}</p>
                   </div>
                   <div 
-                    className="p-3 rounded-lg"
+                    className="rounded-lg p-4"
                     style={{ backgroundColor: stat.color + '20' }}
                   >
-                    <Icon className="h-6 w-6" style={{ color: stat.color }} />
+                    <Icon className="h-8 w-8" style={{ color: stat.color }} />
                   </div>
                 </div>
               </CardContent>
@@ -150,12 +150,9 @@ export default function DashboardPage() {
       </div>
 
       <Card className="border-foreground/10">
-        <CardHeader className="pb-3">
+        <CardHeader className="pb-1">
           <div className="flex items-center justify-between gap-4">
-            <div>
-              <CardTitle className="text-2xl">{t.recentActivity}</CardTitle>
-              <p className="mt-1 text-base text-foreground/60">Latest project updates and team actions</p>
-            </div>
+            <CardTitle className="text-2xl">{t.recentActivity}</CardTitle>
             <Button
               variant="ghost"
               size="sm"
@@ -168,7 +165,7 @@ export default function DashboardPage() {
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="pt-2">
+        <CardContent className="pt-0">
           {activitiesLoading ? (
             <div className="flex h-[220px] items-center justify-center text-lg text-foreground/60">
               Loading activity...
@@ -193,12 +190,12 @@ export default function DashboardPage() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="mb-2 flex flex-wrap items-center gap-2">
-                        <Badge variant="secondary" className="text-sm capitalize">{activity.type}</Badge>
-                        <span className="text-sm font-medium text-foreground/50">{formatTimeAgo(activity.createdAt)}</span>
+                        <Badge variant="secondary" className="text-base capitalize">{activity.type}</Badge>
+                        <span className="text-base font-medium text-foreground/50">{formatTimeAgo(activity.createdAt)}</span>
                       </div>
-                      <p className="text-lg font-semibold leading-snug">{activity.title}</p>
-                      <p className="mt-2 text-base leading-relaxed text-foreground/70">{activity.message}</p>
-                      <p className="mt-3 text-sm font-medium text-foreground/50">{activity.actorName}</p>
+                      <p className="text-xl font-semibold leading-snug">{activity.title}</p>
+                      <p className="mt-2 text-lg leading-relaxed text-foreground/70">{activity.message}</p>
+                      <p className="mt-3 text-base font-medium text-foreground/50">{activity.actorName}</p>
                     </div>
                   </button>
                 );
