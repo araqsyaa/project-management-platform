@@ -5,6 +5,7 @@ export type InvitationStatus = 'pending' | 'accepted' | 'declined';
 export interface FrontendTeam {
   id: string;
   name: string;
+  createdById?: string;
   members: string[];
   pendingMembers: string[];
   declinedMembers: string[];
@@ -13,7 +14,7 @@ export interface FrontendTeam {
 }
 
 const STORAGE_KEY = 'pm-local-teams-v1';
-const TEAMS_CHANGED_EVENT = 'pm-local-teams-changed';
+const DEMO_SEED_KEY = 'pm-local-teams-demo-seeded-v1';
 
 function normalizeTeam(team: Partial<FrontendTeam> & { id: string; name: string; createdAt: string }): FrontendTeam {
   const invitationStatuses: Record<string, InvitationStatus> = {
@@ -35,6 +36,7 @@ function normalizeTeam(team: Partial<FrontendTeam> & { id: string; name: string;
   return {
     id: team.id,
     name: team.name,
+    createdById: team.createdById,
     createdAt: team.createdAt,
     invitationStatuses,
     members: entries.filter(([, status]) => status === 'accepted').map(([userId]) => userId),
@@ -58,7 +60,6 @@ function saveStoredTeams(teams: FrontendTeam[]) {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(teams));
-    window.dispatchEvent(new Event(TEAMS_CHANGED_EVENT));
   } catch {
     // ignore write failures in browser storage
   }
@@ -72,18 +73,14 @@ function generateTeamId() {
 }
 
 export function useLocalTeams() {
-  const [teams, setTeams] = useState<FrontendTeam[]>([]);
+  const [teams, setTeams] = useState<FrontendTeam[]>(() => loadStoredTeams());
   const scheduledTransitions = useRef(new Set<string>());
 
   useEffect(() => {
-    setTeams(loadStoredTeams());
-
     const refresh = () => setTeams(loadStoredTeams());
-    window.addEventListener(TEAMS_CHANGED_EVENT, refresh);
     window.addEventListener('storage', refresh);
 
     return () => {
-      window.removeEventListener(TEAMS_CHANGED_EVENT, refresh);
       window.removeEventListener('storage', refresh);
     };
   }, []);
@@ -93,16 +90,15 @@ export function useLocalTeams() {
   }, [teams]);
 
   useEffect(() => {
-    const timers: number[] = [];
-
     teams.forEach((team) => {
       team.pendingMembers.forEach((userId) => {
         const transitionKey = `${team.id}:${userId}`;
         if (scheduledTransitions.current.has(transitionKey)) return;
+        if (Math.random() < 0.45) return;
 
         scheduledTransitions.current.add(transitionKey);
         const delay = 3000 + Math.floor(Math.random() * 2000);
-        const timer = window.setTimeout(() => {
+        window.setTimeout(() => {
           setTeams((current) =>
             current.map((currentTeam) => {
               if (currentTeam.id !== team.id || currentTeam.invitationStatuses[userId] !== 'pending') {
@@ -123,15 +119,11 @@ export function useLocalTeams() {
           );
           scheduledTransitions.current.delete(transitionKey);
         }, delay);
-
-        timers.push(timer);
       });
     });
-
-    return () => timers.forEach((timer) => window.clearTimeout(timer));
   }, [teams]);
 
-  const createTeam = (name: string, invitedUserIds: string[]) => {
+  const createTeam = (name: string, invitedUserIds: string[], createdById?: string) => {
     const invitationStatuses = invitedUserIds.reduce<Record<string, InvitationStatus>>((statuses, userId) => {
       statuses[userId] = 'pending';
       return statuses;
@@ -140,6 +132,7 @@ export function useLocalTeams() {
     const team: FrontendTeam = normalizeTeam({
       id: generateTeamId(),
       name,
+      createdById,
       invitationStatuses,
       createdAt: new Date().toISOString(),
     });
@@ -183,11 +176,57 @@ export function useLocalTeams() {
     setTeams(loadStoredTeams());
   };
 
+  const seedDemoTeams = (userIds: string[], currentUserId?: string) => {
+    if (typeof window !== 'undefined' && window.localStorage.getItem(DEMO_SEED_KEY)) return;
+    if (teams.length > 0 || userIds.length === 0) return;
+
+    const me = currentUserId ?? userIds[0];
+    const otherUsers = userIds.filter((userId) => userId !== me);
+    const sentPending = otherUsers.slice(0, 3);
+    const sentAccepted = otherUsers[3] ?? otherUsers[0];
+    const sentDeclined = otherUsers[4] ?? otherUsers[1];
+    const receivedOwner = otherUsers[5] ?? otherUsers[0] ?? me;
+    const now = Date.now();
+
+    const demoTeams = [
+      normalizeTeam({
+        id: 'demo-product-team',
+        name: 'Product Demo Team',
+        createdById: me,
+        createdAt: new Date(now - 86400000).toISOString(),
+        invitationStatuses: {
+          ...sentPending.reduce<Record<string, InvitationStatus>>((statuses, userId) => {
+            statuses[userId] = 'pending';
+            return statuses;
+          }, {}),
+          ...(sentAccepted ? { [sentAccepted]: 'accepted' as const } : {}),
+          ...(sentDeclined ? { [sentDeclined]: 'declined' as const } : {}),
+        },
+      }),
+      normalizeTeam({
+        id: 'demo-design-review',
+        name: 'Design Review Group',
+        createdById: receivedOwner,
+        createdAt: new Date(now - 43200000).toISOString(),
+        invitationStatuses: {
+          [me]: 'pending',
+          ...(otherUsers[1] ? { [otherUsers[1]]: 'accepted' as const } : {}),
+        },
+      }),
+    ];
+
+    setTeams(demoTeams);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(DEMO_SEED_KEY, 'true');
+    }
+  };
+
   return {
     teams,
     createTeam,
     acceptInvitation,
     declineInvitation,
     refreshTeams,
+    seedDemoTeams,
   };
 }

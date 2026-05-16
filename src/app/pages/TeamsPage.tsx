@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { t } from '../i18n/translations';
 import { useUsers } from '../api/useApi';
-import { useLocalTeams } from '../hooks/useLocalTeams';
+import { useLocalTeams, type InvitationStatus } from '../hooks/useLocalTeams';
+import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -9,45 +10,85 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from '../components/ui/badge';
 import { Checkbox } from '../components/ui/checkbox';
 import { Plus, Search, Check, X } from 'lucide-react';
+import type { FrontendUser } from '../types/frontend';
+
+const mockUsers: FrontendUser[] = [
+  { id: 'demo-user-1', name: 'Anna Grigoryan', email: 'anna.grigoryan@example.com', role: 'project_manager' },
+  { id: 'demo-user-2', name: 'David Petrosyan', email: 'david.petrosyan@example.com', role: 'team_member' },
+  { id: 'demo-user-3', name: 'Mariam Hakobyan', email: 'mariam.hakobyan@example.com', role: 'team_member' },
+  { id: 'demo-user-4', name: 'Arman Sargsyan', email: 'arman.sargsyan@example.com', role: 'viewer' },
+  { id: 'demo-user-5', name: 'Lilit Avagyan', email: 'lilit.avagyan@example.com', role: 'administrator' },
+  { id: 'demo-user-6', name: 'Narek Vardanyan', email: 'narek.vardanyan@example.com', role: 'team_member' },
+];
+
+const statusStyles: Record<InvitationStatus, string> = {
+  pending: 'border-amber-200 bg-amber-50 text-amber-700',
+  accepted: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  declined: 'border-red-200 bg-red-50 text-red-700',
+};
+
+const statusLabels: Record<InvitationStatus, string> = {
+  pending: 'Pending',
+  accepted: 'Accepted',
+  declined: 'Declined',
+};
+
+function InvitationBadge({ status, label }: { status: InvitationStatus; label?: string }) {
+  return (
+    <Badge variant="outline" className={statusStyles[status]}>
+      {label ?? statusLabels[status]}
+    </Badge>
+  );
+}
 
 export default function TeamsPage() {
+  const { user: currentUser } = useAuth();
   const { users, loading: usersLoading, error: usersError } = useUsers();
-  const { teams, createTeam, acceptInvitation, declineInvitation } = useLocalTeams();
+  const { teams, createTeam, acceptInvitation, declineInvitation, seedDemoTeams } = useLocalTeams();
   const [searchQuery, setSearchQuery] = useState('');
   const [teamName, setTeamName] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const availableUsers = useMemo(() => {
+    const baseUsers = users.length > 0 ? users : mockUsers;
+    if (!currentUser || baseUsers.some((user) => user.id === currentUser.id)) return baseUsers;
+    return [currentUser, ...baseUsers];
+  }, [currentUser, users]);
+
+  useEffect(() => {
+    if (!usersLoading && availableUsers.length > 0) {
+      seedDemoTeams(availableUsers.map((user) => user.id), currentUser?.id);
+    }
+  }, [availableUsers, currentUser?.id, seedDemoTeams, usersLoading]);
 
   const filteredUsers = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return [];
-    return users
-      .filter((user) =>
-        (user.name.toLowerCase().includes(query) || user.email.toLowerCase().includes(query)) &&
-        !selectedUserIds.includes(user.id),
-      )
-      .slice(0, 12);
-  }, [searchQuery, users, selectedUserIds]);
+    return availableUsers
+      .filter((user) => user.name.toLowerCase().includes(query) || user.email.toLowerCase().includes(query))
+      .slice(0, 50);
+  }, [availableUsers, searchQuery]);
 
-  const pendingInviteUsers = useMemo(() => {
-    return users.filter((user) => selectedUserIds.includes(user.id));
-  }, [selectedUserIds, users]);
+  const selectedUsers = useMemo(() => {
+    return availableUsers.filter((user) => selectedUserIds.includes(user.id));
+  }, [availableUsers, selectedUserIds]);
 
-  const teamUserStatusMap = useMemo(() => {
-    return teams.reduce<Record<string, { memberships: string[]; invitations: string[] }>>((map, team) => {
-      team.members.forEach((userId) => {
-        const entry = map[userId] ?? { memberships: [], invitations: [] };
-        entry.memberships.push(team.name);
-        map[userId] = entry;
-      });
-      team.pendingMembers.forEach((userId) => {
-        const entry = map[userId] ?? { memberships: [], invitations: [] };
-        entry.invitations.push(team.name);
-        map[userId] = entry;
-      });
-      return map;
-    }, {});
-  }, [teams]);
+  const teamStats = useMemo(() => {
+    const currentUserId = currentUser?.id;
+    return teams.reduce(
+      (stats, team) => {
+        stats.totalPending += team.pendingMembers.length;
+        if (currentUserId && team.createdById === currentUserId) {
+          stats.sentPending += team.pendingMembers.length;
+        }
+        if (currentUserId && team.createdById !== currentUserId && team.invitationStatuses[currentUserId] === 'pending') {
+          stats.receivedPending += 1;
+        }
+        return stats;
+      },
+      { totalPending: 0, sentPending: 0, receivedPending: 0 },
+    );
+  }, [currentUser?.id, teams]);
 
   const resetModal = () => {
     setTeamName('');
@@ -58,7 +99,12 @@ export default function TeamsPage() {
   const handleSaveTeam = () => {
     const trimmedName = teamName.trim();
     if (!trimmedName) return;
-    createTeam(trimmedName, selectedUserIds);
+    createTeam(trimmedName, selectedUserIds, currentUser?.id);
+    resetModal();
+    setIsCreateOpen(false);
+  };
+
+  const handleCancel = () => {
     resetModal();
     setIsCreateOpen(false);
   };
@@ -75,7 +121,7 @@ export default function TeamsPage() {
         <div>
           <h1 className="text-3xl">{t.teams}</h1>
           <p className="text-sm text-foreground/60 mt-1">
-            Manage your teams, invite users, and track pending memberships.
+            Manage teams, sent invitations, and invitations waiting for your response.
           </p>
         </div>
 
@@ -86,14 +132,21 @@ export default function TeamsPage() {
               {t.createTeam}
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="flex max-h-[85vh] max-w-2xl flex-col overflow-hidden">
             <DialogHeader>
               <DialogTitle>{t.createTeam}</DialogTitle>
               <DialogDescription>
-                Create a new team and invite members. Invitations are stored as pending until accepted.
+                Create a team and send mock invitations to selected users.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-6">
+
+            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-1">
+              {usersError && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                  Backend users are unavailable, so demo users are shown for invitations.
+                </div>
+              )}
+
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-foreground/90">{t.teamName}</label>
                 <Input
@@ -104,10 +157,39 @@ export default function TeamsPage() {
               </div>
 
               <div className="space-y-3">
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-semibold">Selected Users</h2>
+                  {selectedUsers.length > 0 && <InvitationBadge status="pending" label="Invite Sent" />}
+                </div>
+                <div className="grid max-h-40 gap-2 overflow-y-auto rounded-lg border border-foreground/10 bg-background p-3">
+                  {selectedUsers.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-foreground/20 bg-muted px-4 py-4 text-sm text-foreground/60">
+                      Selected users will appear here before the invitations are saved.
+                    </div>
+                  ) : (
+                    selectedUsers.map((user) => (
+                      <div key={user.id} className="flex items-center justify-between gap-3 rounded-lg border border-foreground/10 bg-secondary/5 px-4 py-3">
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">{user.name}</p>
+                          <p className="truncate text-sm text-foreground/60">{user.email}</p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <InvitationBadge status="pending" label="Invite Sent" />
+                          <Button type="button" size="sm" variant="outline" onClick={() => toggleSelection(user.id)}>
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-sm font-medium">{t.searchUsers}</p>
-                    <p className="text-xs text-foreground/60">Search users by name or email to invite them to the team.</p>
+                    <p className="text-xs text-foreground/60">Search by name or email and select multiple users.</p>
                   </div>
                   <div className="relative w-full max-w-md">
                     <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/40" />
@@ -123,64 +205,45 @@ export default function TeamsPage() {
                 <div className="rounded-lg border border-foreground/10 bg-background p-3">
                   {searchQuery.trim().length === 0 ? (
                     <p className="text-sm text-foreground/60">Type to search users for invitation.</p>
-                  ) : usersLoading ? (
+                  ) : usersLoading && users.length === 0 ? (
                     <p className="text-sm text-foreground/60">Loading users...</p>
                   ) : filteredUsers.length === 0 ? (
                     <p className="text-sm text-foreground/60">No users match your search.</p>
                   ) : (
-                    <div className="space-y-2">
-                      {filteredUsers.map((user) => (
-                        <button
-                          key={user.id}
-                          type="button"
-                          onClick={() => toggleSelection(user.id)}
-                          className="flex w-full items-center gap-3 rounded-lg border border-foreground/10 bg-secondary/5 px-3 py-3 text-left transition hover:border-foreground/20"
-                        >
-                          <Checkbox checked={selectedUserIds.includes(user.id)} onCheckedChange={() => toggleSelection(user.id)} />
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium">{user.name}</p>
-                            <p className="text-sm text-foreground/60">{user.email}</p>
+                    <div className="max-h-[280px] space-y-2 overflow-y-auto pr-1">
+                      {filteredUsers.map((user) => {
+                        const isSelected = selectedUserIds.includes(user.id);
+                        return (
+                          <div
+                            key={user.id}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => toggleSelection(user.id)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                toggleSelection(user.id);
+                              }
+                            }}
+                            className="flex w-full cursor-pointer items-center gap-3 rounded-lg border border-foreground/10 bg-secondary/5 px-3 py-3 text-left transition hover:border-foreground/20"
+                          >
+                            <Checkbox checked={isSelected} />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-medium">{user.name}</p>
+                              <p className="truncate text-sm text-foreground/60">{user.email}</p>
+                            </div>
+                            {isSelected ? <InvitationBadge status="pending" label="Invite Sent" /> : <Badge variant="outline">Select</Badge>}
                           </div>
-                          <Badge variant="outline">{t.invited}</Badge>
-                        </button>
-                      ))}
+                        );
+                      })}
                     </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-semibold">{t.pendingInvitations}</h2>
-                  <span className="text-sm text-foreground/60">{pendingInviteUsers.length} selected</span>
-                </div>
-                <div className="grid gap-2">
-                  {pendingInviteUsers.length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-foreground/20 bg-muted px-4 py-6 text-sm text-foreground/60">
-                      Select users from search results to add them as pending invitations.
-                    </div>
-                  ) : (
-                    pendingInviteUsers.map((user) => (
-                      <div key={user.id} className="flex items-center justify-between gap-3 rounded-lg border border-foreground/10 bg-background px-4 py-3">
-                        <div>
-                          <p className="font-medium">{user.name}</p>
-                          <p className="text-sm text-foreground/60">{user.email}</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => toggleSelection(user.id)}
-                          className="text-sm font-medium text-destructive"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ))
                   )}
                 </div>
               </div>
             </div>
-            <DialogFooter className="mt-4">
-              <Button variant="outline" type="button" onClick={() => setIsCreateOpen(false)}>
+
+            <DialogFooter className="mt-4 shrink-0 border-t border-foreground/10 pt-4">
+              <Button variant="outline" type="button" onClick={handleCancel}>
                 {t.cancel}
               </Button>
               <Button type="button" onClick={handleSaveTeam} disabled={!teamName.trim()}>
@@ -197,15 +260,19 @@ export default function TeamsPage() {
             <CardTitle>{t.teams}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-foreground/60">Teams let you group users and manage invitations before membership is accepted.</p>
+            <p className="text-sm text-foreground/60">Pending invitations are split into sent by you and received by you.</p>
             <div className="mt-4 grid gap-2">
               <div className="rounded-lg bg-secondary/5 px-4 py-3">
                 <p className="text-sm text-foreground/60">Total teams</p>
                 <p className="text-2xl font-semibold">{teams.length}</p>
               </div>
               <div className="rounded-lg bg-secondary/5 px-4 py-3">
-                <p className="text-sm text-foreground/60">Pending invitations</p>
-                <p className="text-2xl font-semibold">{teams.reduce((count, team) => count + team.pendingMembers.length, 0)}</p>
+                <p className="text-sm text-foreground/60">Pending sent by you</p>
+                <p className="text-2xl font-semibold">{teamStats.sentPending}</p>
+              </div>
+              <div className="rounded-lg bg-secondary/5 px-4 py-3">
+                <p className="text-sm text-foreground/60">Pending received by you</p>
+                <p className="text-2xl font-semibold">{teamStats.receivedPending}</p>
               </div>
             </div>
           </CardContent>
@@ -223,8 +290,10 @@ export default function TeamsPage() {
             ) : (
               <div className="space-y-4">
                 {teams.map((team) => {
-                  const teamMembers = users.filter((user) => team.members.includes(user.id));
-                  const teamPending = users.filter((user) => team.pendingMembers.includes(user.id));
+                  const invitedUsers = availableUsers.filter((user) => team.invitationStatuses[user.id]);
+                  const teamMembers = invitedUsers.filter((user) => team.invitationStatuses[user.id] === 'accepted');
+                  const sentByCurrentUser = currentUser?.id && team.createdById === currentUser.id;
+                  const receivedByCurrentUser = currentUser?.id && team.createdById !== currentUser.id && team.invitationStatuses[currentUser.id];
 
                   return (
                     <Card key={team.id} className="border-foreground/10 bg-background">
@@ -237,13 +306,15 @@ export default function TeamsPage() {
                             </div>
                             <div className="flex flex-wrap gap-2">
                               <Badge variant="secondary">{team.members.length} {t.members}</Badge>
-                              <Badge variant="outline">{team.pendingMembers.length} {t.pending}</Badge>
+                              <InvitationBadge status="pending" label={`${team.pendingMembers.length} pending`} />
+                              <InvitationBadge status="accepted" label={`${team.members.length} accepted`} />
+                              {team.declinedMembers.length > 0 && <InvitationBadge status="declined" label={`${team.declinedMembers.length} declined`} />}
                             </div>
                           </div>
 
                           <div className="grid gap-4 md:grid-cols-2">
                             <div className="space-y-2">
-                              <p className="text-sm font-medium">{t.members}</p>
+                              <p className="text-sm font-medium">Accepted Members</p>
                               {teamMembers.length === 0 ? (
                                 <p className="text-sm text-foreground/60">No accepted members yet.</p>
                               ) : (
@@ -256,27 +327,39 @@ export default function TeamsPage() {
                             </div>
 
                             <div className="space-y-2">
-                              <p className="text-sm font-medium">{t.pendingInvitations}</p>
-                              {teamPending.length === 0 ? (
-                                <p className="text-sm text-foreground/60">No pending invitations.</p>
+                              <div>
+                                <p className="text-sm font-medium">{sentByCurrentUser ? 'Invitations sent by you' : 'Team invitations'}</p>
+                                {receivedByCurrentUser && <p className="text-xs text-foreground/60">This team includes an invitation received by you.</p>}
+                              </div>
+                              {invitedUsers.length === 0 ? (
+                                <p className="text-sm text-foreground/60">No invitations for this team.</p>
                               ) : (
                                 <div className="space-y-2">
-                                  {teamPending.map((user) => (
-                                    <div key={user.id} className="flex flex-col gap-2 rounded-lg border border-foreground/10 bg-muted p-3 sm:flex-row sm:items-center sm:justify-between">
-                                      <div>
-                                        <p className="font-medium">{user.name}</p>
-                                        <p className="text-sm text-foreground/60">{user.email}</p>
+                                  {invitedUsers.map((user) => {
+                                    const status = team.invitationStatuses[user.id];
+                                    const isCurrentUserPending = currentUser?.id === user.id && status === 'pending';
+                                    return (
+                                      <div key={user.id} className="flex flex-col gap-2 rounded-lg border border-foreground/10 bg-muted p-3 sm:flex-row sm:items-center sm:justify-between">
+                                        <div className="min-w-0">
+                                          <p className="truncate font-medium">{user.name}</p>
+                                          <p className="truncate text-sm text-foreground/60">{user.email}</p>
+                                        </div>
+                                        <div className="flex shrink-0 items-center gap-2">
+                                          <InvitationBadge status={status} />
+                                          {isCurrentUserPending && (
+                                            <>
+                                              <Button size="icon" variant="secondary" onClick={() => acceptInvitation(team.id, user.id)} aria-label="Accept invitation">
+                                                <Check className="h-4 w-4" />
+                                              </Button>
+                                              <Button size="icon" variant="outline" onClick={() => declineInvitation(team.id, user.id)} aria-label="Decline invitation">
+                                                <X className="h-4 w-4" />
+                                              </Button>
+                                            </>
+                                          )}
+                                        </div>
                                       </div>
-                                      <div className="flex items-center gap-2">
-                                        <Button size="icon" variant="secondary" onClick={() => acceptInvitation(team.id, user.id)}>
-                                          <Check className="h-4 w-4" />
-                                        </Button>
-                                        <Button size="icon" variant="outline" onClick={() => declineInvitation(team.id, user.id)}>
-                                          <X className="h-4 w-4" />
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  ))}
+                                    );
+                                  })}
                                 </div>
                               )}
                             </div>
