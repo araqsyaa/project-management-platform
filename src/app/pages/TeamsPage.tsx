@@ -54,12 +54,14 @@ export default function TeamsPage() {
     if (!currentUser || baseUsers.some((user) => user.id === currentUser.id)) return baseUsers;
     return [currentUser, ...baseUsers];
   }, [currentUser, users]);
+  const currentUserId = currentUser?.id ?? availableUsers[0]?.id;
+  const currentUserName = availableUsers.find((user) => user.id === currentUserId)?.name ?? 'Current user';
 
   useEffect(() => {
     if (!usersLoading && availableUsers.length > 0) {
-      seedDemoTeams(availableUsers.map((user) => user.id), currentUser?.id);
+      seedDemoTeams(availableUsers.map((user) => user.id), currentUserId);
     }
-  }, [availableUsers, currentUser?.id, seedDemoTeams, usersLoading]);
+  }, [availableUsers, currentUserId, seedDemoTeams, usersLoading]);
 
   const filteredUsers = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -74,7 +76,6 @@ export default function TeamsPage() {
   }, [availableUsers, selectedUserIds]);
 
   const teamStats = useMemo(() => {
-    const currentUserId = currentUser?.id;
     return teams.reduce(
       (stats, team) => {
         stats.totalPending += team.pendingMembers.length;
@@ -88,7 +89,31 @@ export default function TeamsPage() {
       },
       { totalPending: 0, sentPending: 0, receivedPending: 0 },
     );
-  }, [currentUser?.id, teams]);
+  }, [currentUserId, teams]);
+
+  const pendingSentByYou = useMemo(() => {
+    if (!currentUserId) return [];
+    return teams
+      .filter((team) => team.createdById === currentUserId)
+      .flatMap((team) =>
+        team.pendingMembers.map((userId) => ({
+          teamId: team.id,
+          teamName: team.name,
+          userName: availableUsers.find((user) => user.id === userId)?.name ?? 'Unknown user',
+        })),
+      );
+  }, [availableUsers, currentUserId, teams]);
+
+  const pendingReceivedByYou = useMemo(() => {
+    if (!currentUserId) return [];
+    return teams
+      .filter((team) => team.createdById !== currentUserId && team.invitationStatuses[currentUserId] === 'pending')
+      .map((team) => ({
+        teamId: team.id,
+        teamName: team.name,
+        senderName: availableUsers.find((user) => user.id === team.createdById)?.name ?? 'Team owner',
+      }));
+  }, [availableUsers, currentUserId, teams]);
 
   const resetModal = () => {
     setTeamName('');
@@ -97,9 +122,8 @@ export default function TeamsPage() {
   };
 
   const handleSaveTeam = () => {
-    const trimmedName = teamName.trim();
-    if (!trimmedName) return;
-    createTeam(trimmedName, selectedUserIds, currentUser?.id);
+    const trimmedName = teamName.trim() || `Team ${teams.length + 1}`;
+    createTeam(trimmedName, selectedUserIds, currentUserId);
     resetModal();
     setIsCreateOpen(false);
   };
@@ -246,7 +270,7 @@ export default function TeamsPage() {
               <Button variant="outline" type="button" onClick={handleCancel}>
                 {t.cancel}
               </Button>
-              <Button type="button" onClick={handleSaveTeam} disabled={!teamName.trim()}>
+              <Button type="button" onClick={handleSaveTeam}>
                 {t.save}
               </Button>
             </DialogFooter>
@@ -275,6 +299,12 @@ export default function TeamsPage() {
                 <p className="text-2xl font-semibold">{teamStats.receivedPending}</p>
               </div>
             </div>
+            <div className="mt-4 rounded-lg border border-foreground/10 bg-background px-4 py-3">
+              <p className="text-sm font-medium">Where you see your invitations</p>
+              <p className="mt-1 text-sm text-foreground/60">
+                Team invitations sent to {currentUserName} appear below with Accept and Decline actions. Project invitations are opened from their invite link on the project invitation page.
+              </p>
+            </div>
           </CardContent>
         </Card>
 
@@ -283,6 +313,43 @@ export default function TeamsPage() {
             <CardTitle>Team list</CardTitle>
           </CardHeader>
           <CardContent>
+            <div className="mb-5 grid gap-3 md:grid-cols-2">
+              <div className="rounded-lg border border-foreground/10 bg-secondary/5 px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold">Pending Sent by You</p>
+                  <InvitationBadge status="pending" label={`${pendingSentByYou.length} pending`} />
+                </div>
+                <div className="mt-3 space-y-2">
+                  {pendingSentByYou.slice(0, 3).map((invite) => (
+                    <div key={`${invite.teamId}-${invite.userName}`} className="flex items-center justify-between gap-3 text-sm">
+                      <span className="truncate text-foreground/70">{invite.userName}</span>
+                      <span className="shrink-0 text-foreground/50">{invite.teamName}</span>
+                    </div>
+                  ))}
+                  {pendingSentByYou.length > 3 && (
+                    <p className="text-xs text-foreground/50">+{pendingSentByYou.length - 3} more pending invitations</p>
+                  )}
+                </div>
+              </div>
+              <div className="rounded-lg border border-foreground/10 bg-secondary/5 px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold">Pending Received by You</p>
+                  <InvitationBadge status="pending" label={`${pendingReceivedByYou.length} pending`} />
+                </div>
+                <div className="mt-3 space-y-2">
+                  {pendingReceivedByYou.slice(0, 3).map((invite) => (
+                    <div key={invite.teamId} className="flex items-center justify-between gap-3 text-sm">
+                      <span className="truncate text-foreground/70">{invite.teamName}</span>
+                      <span className="shrink-0 text-foreground/50">from {invite.senderName}</span>
+                    </div>
+                  ))}
+                  {pendingReceivedByYou.length > 3 && (
+                    <p className="text-xs text-foreground/50">+{pendingReceivedByYou.length - 3} more received invitations</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
             {teams.length === 0 ? (
               <div className="rounded-lg border border-dashed border-foreground/20 bg-muted px-4 py-8 text-center text-sm text-foreground/60">
                 No teams created yet. Start by creating a new team and inviting users.
@@ -292,8 +359,8 @@ export default function TeamsPage() {
                 {teams.map((team) => {
                   const invitedUsers = availableUsers.filter((user) => team.invitationStatuses[user.id]);
                   const teamMembers = invitedUsers.filter((user) => team.invitationStatuses[user.id] === 'accepted');
-                  const sentByCurrentUser = currentUser?.id && team.createdById === currentUser.id;
-                  const receivedByCurrentUser = currentUser?.id && team.createdById !== currentUser.id && team.invitationStatuses[currentUser.id];
+                  const sentByCurrentUser = currentUserId && team.createdById === currentUserId;
+                  const receivedByCurrentUser = currentUserId && team.createdById !== currentUserId && team.invitationStatuses[currentUserId];
 
                   return (
                     <Card key={team.id} className="border-foreground/10 bg-background">
@@ -304,7 +371,7 @@ export default function TeamsPage() {
                               <p className="text-lg font-semibold">{team.name}</p>
                               <p className="text-sm text-foreground/60">Created on {new Date(team.createdAt).toLocaleDateString()}</p>
                             </div>
-                            <div className="flex flex-wrap gap-2">
+                            <div className="flex flex-wrap gap-2 pt-2 sm:pr-2">
                               <Badge variant="secondary">{team.members.length} {t.members}</Badge>
                               <InvitationBadge status="pending" label={`${team.pendingMembers.length} pending`} />
                               <InvitationBadge status="accepted" label={`${team.members.length} accepted`} />
@@ -337,7 +404,7 @@ export default function TeamsPage() {
                                 <div className="space-y-2">
                                   {invitedUsers.map((user) => {
                                     const status = team.invitationStatuses[user.id];
-                                    const isCurrentUserPending = currentUser?.id === user.id && status === 'pending';
+                                    const isCurrentUserPending = currentUserId === user.id && status === 'pending';
                                     return (
                                       <div key={user.id} className="flex flex-col gap-2 rounded-lg border border-foreground/10 bg-muted p-3 sm:flex-row sm:items-center sm:justify-between">
                                         <div className="min-w-0">

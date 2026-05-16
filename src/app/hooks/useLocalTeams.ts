@@ -14,7 +14,6 @@ export interface FrontendTeam {
 }
 
 const STORAGE_KEY = 'pm-local-teams-v1';
-const DEMO_SEED_KEY = 'pm-local-teams-demo-seeded-v1';
 
 function normalizeTeam(team: Partial<FrontendTeam> & { id: string; name: string; createdAt: string }): FrontendTeam {
   const invitationStatuses: Record<string, InvitationStatus> = {
@@ -91,6 +90,8 @@ export function useLocalTeams() {
 
   useEffect(() => {
     teams.forEach((team) => {
+      if (team.id.startsWith('demo-')) return;
+
       team.pendingMembers.forEach((userId) => {
         const transitionKey = `${team.id}:${userId}`;
         if (scheduledTransitions.current.has(transitionKey)) return;
@@ -177,8 +178,10 @@ export function useLocalTeams() {
   };
 
   const seedDemoTeams = (userIds: string[], currentUserId?: string) => {
-    if (typeof window !== 'undefined' && window.localStorage.getItem(DEMO_SEED_KEY)) return;
-    if (teams.length > 0 || userIds.length === 0) return;
+    if (userIds.length === 0) return;
+
+    const hasUsefulDemoData = teams.some((team) => team.id.startsWith('demo-') && team.pendingMembers.length > 0);
+    if (hasUsefulDemoData) return;
 
     const me = currentUserId ?? userIds[0];
     const otherUsers = userIds.filter((userId) => userId !== me);
@@ -215,10 +218,7 @@ export function useLocalTeams() {
       }),
     ];
 
-    setTeams(demoTeams);
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(DEMO_SEED_KEY, 'true');
-    }
+    setTeams((current) => [...current.filter((team) => !team.id.startsWith('demo-')), ...demoTeams]);
   };
 
   return {
