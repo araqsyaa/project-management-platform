@@ -6,6 +6,7 @@ import {
   LayoutDashboard, 
   FolderKanban, 
   Users, 
+  UserPlus,
   FileText, 
   Settings, 
   Bell,
@@ -39,6 +40,7 @@ export default function Layout() {
   const navItems = [
     { path: '/dashboard', icon: LayoutDashboard, label: t.dashboard },
     { path: '/projects', icon: FolderKanban, label: t.projects },
+    { path: '/teams', icon: UserPlus, label: t.teams },
     { path: '/users', icon: Users, label: t.users },
     { path: '/reports', icon: FileText, label: t.reports },
     { path: '/settings', icon: Settings, label: t.settings },

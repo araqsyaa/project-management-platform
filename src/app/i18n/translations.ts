@@ -12,6 +12,7 @@ export const t = {
   // Navigation
   dashboard: 'Dashboard',
   projects: 'Projects',
+  teams: 'Teams',
   users: 'Users & Roles',
   reports: 'Reports',
   settings: 'Settings',
@@ -69,6 +70,13 @@ export const t = {
   projectManager: 'Project Manager',
   teamMember: 'Team Member',
   viewer: 'Viewer',
+  teamName: 'Team Name',
+  searchUsers: 'Search users',
+  pendingInvitations: 'Pending Invitations',
+  members: 'Members',
+  pending: 'Pending',
+  invited: 'Invited',
+  userSearchPlaceholder: 'Search by name or email',
   
   // Reports
   exportToExcel: 'Export to Excel',

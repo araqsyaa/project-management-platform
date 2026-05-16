@@ -6,6 +6,7 @@ import ProjectsPage from './pages/ProjectsPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
 import MilestoneDetailPage from './pages/MilestoneDetailPage';
 import UsersPage from './pages/UsersPage';
+import TeamsPage from './pages/TeamsPage';
 import ReportsPage from './pages/ReportsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import ProgressPage from './pages/ProgressPage';
@@ -41,6 +42,10 @@ export const router = createBrowserRouter([
       {
         path: 'projects',
         element: <ProjectsPage />,
+      },
+      {
+        path: 'teams',
+        element: <TeamsPage />,
       },
       {
         path: 'projects/:projectId',
