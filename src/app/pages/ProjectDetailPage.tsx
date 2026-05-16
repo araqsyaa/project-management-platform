@@ -614,39 +614,41 @@ export default function ProjectDetailPage() {
           />
         </div>
 
-        <Card className="border-foreground/10">
-          <CardContent className="space-y-3 p-4">
-            <div className="flex items-center justify-between gap-3">
+        <Card className="max-w-2xl border-foreground/10">
+          <CardContent className="space-y-4 p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <h3 className="text-xl font-semibold">Project Members</h3>
-                <p className="text-sm text-foreground/60">Manage access and invitation links for this project.</p>
+                <h3 className="text-2xl font-semibold">Project Members</h3>
+                <p className="mt-1 text-base leading-relaxed text-foreground/65">
+                  Manage access and invitation links for this project.
+                </p>
               </div>
               {isOwner && (
-                <Button size="sm" className="h-10 px-4 text-base" onClick={handleCreateInviteLink} disabled={isInviting}>
+                <Button size="sm" className="h-11 px-5 text-base" onClick={handleCreateInviteLink} disabled={isInviting}>
                   {isInviting ? 'Generating...' : 'Generate Invite Link'}
                 </Button>
               )}
             </div>
             {latestInvite && isOwner && (
-              <div className="rounded-md border border-foreground/10 bg-secondary/5 px-3 py-2">
-                <p className="break-all text-sm text-foreground/70">
+              <div className="rounded-md border border-foreground/10 bg-secondary/5 px-4 py-3">
+                <p className="break-all text-base leading-relaxed text-foreground/70">
                   <span className="font-medium text-foreground">Latest invite:</span> {window.location.origin}/invite/{latestInvite.token}
                 </p>
               </div>
             )}
-            <div className="grid max-h-56 gap-2 overflow-y-auto pr-1 md:grid-cols-2">
+            <div className="grid max-h-80 gap-3 overflow-y-auto pr-1">
               {members.map((member) => (
-                <div key={member.id} className="flex items-center justify-between gap-3 rounded-md border border-foreground/10 px-3 py-2.5">
+                <div key={member.id} className="flex items-center justify-between gap-4 rounded-md border border-foreground/10 px-4 py-3.5">
                   <div className="min-w-0">
-                    <p className="truncate text-base font-semibold">{member.userName}</p>
-                    <p className="truncate text-sm text-foreground/60">{member.userEmail}</p>
+                    <p className="truncate text-lg font-semibold">{member.userName}</p>
+                    <p className="truncate text-base text-foreground/60">{member.userEmail}</p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    <Badge variant={member.role === 'owner' ? 'default' : 'secondary'} className="text-sm">
+                    <Badge variant={member.role === 'owner' ? 'default' : 'secondary'} className="text-base">
                       {member.role}
                     </Badge>
                     {isOwner && member.role !== 'owner' && (
-                      <Button variant="ghost" size="sm" className="h-8 px-3 text-sm" onClick={() => handleRemoveMember(member.userId)}>
+                      <Button variant="ghost" size="sm" className="h-9 px-3 text-base" onClick={() => handleRemoveMember(member.userId)}>
                         Remove
                       </Button>
                     )}

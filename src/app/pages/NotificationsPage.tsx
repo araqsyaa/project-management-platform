@@ -3,131 +3,66 @@ import { useNavigate } from 'react-router';
 import { t } from '../i18n/translations';
 import { Badge } from '../components/ui/badge';
 import { Card, CardContent } from '../components/ui/card';
-import { Bell, Flag, MessageSquare, CheckCircle2, FolderKanban, Settings, Download } from 'lucide-react';
-import { useActivities } from '../api/useApi';
+import { Bell } from 'lucide-react';
+import { useImportantNotifications, type ImportantNotificationKind, type ImportantNotificationPriority } from '../hooks/useImportantNotifications';
 
-function formatTime(timestamp: string) {
-  const date = new Date(timestamp);
-  const now = new Date();
-  const diff = now.getTime() - date.getTime();
-  const hours = Math.floor(diff / (1000 * 60 * 60));
+const notificationStyles: Record<ImportantNotificationKind, { label: string; color: string }> = {
+  project: { label: 'Project invite', color: '#6246EA' },
+  task: { label: 'Task assignment', color: '#2CB67D' },
+  milestone: { label: 'Milestone deadline', color: '#E45858' },
+  team: { label: 'Team request', color: '#F59E0B' },
+};
 
-  if (hours < 1) return 'Just now';
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
-
-function getActivityIcon(type: string) {
-  switch (type) {
-    case 'comment':
-      return MessageSquare;
-    case 'milestone':
-      return Flag;
-    case 'project':
-      return FolderKanban;
-    case 'settings':
-      return Settings;
-    case 'export':
-      return Download;
-    case 'success':
-      return CheckCircle2;
-    default:
-      return Bell;
-  }
-}
-
-function getActivityColor(type: string) {
-  switch (type) {
-    case 'comment':
-      return '#2B2C34';
-    case 'milestone':
-      return '#6246EA';
-    case 'project':
-      return '#6246EA';
-    case 'settings':
-      return '#2B2C34';
-    case 'export':
-      return '#2CB67D';
-    case 'success':
-      return '#2CB67D';
-    default:
-      return '#6246EA';
-  }
-}
+const priorityLabels: Record<ImportantNotificationPriority, string> = {
+  high: 'High',
+  medium: 'Medium',
+  low: 'Low',
+};
 
 export default function NotificationsPage() {
   const navigate = useNavigate();
-  const { activities, loading, error } = useActivities();
+  const notifications = useImportantNotifications();
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl">{t.recentActivity}</h1>
-          <p className="text-sm text-foreground/60 mt-2">
-            Showing your personal activity history.
-          </p>
-        </div>
+      <div>
+        <h1 className="text-3xl">{t.notifications}</h1>
+        <p className="mt-2 text-sm text-foreground/60">
+          Important user-related alerts, separated from general recent activity.
+        </p>
       </div>
 
       <div className="space-y-3">
-        {loading ? (
-          <Card className="border-foreground/10">
-            <CardContent className="p-12 text-center">
-              <p className="text-foreground/60">Loading activity...</p>
-            </CardContent>
-          </Card>
-        ) : error ? (
-          <Card className="border-foreground/10">
-            <CardContent className="p-12 text-center">
-              <p className="text-red-500">{error}</p>
-            </CardContent>
-          </Card>
-        ) : activities.length === 0 ? (
-          <Card className="border-foreground/10">
-            <CardContent className="p-12 text-center">
-              <Bell className="h-12 w-12 mx-auto mb-4 text-foreground/20" />
-              <p className="text-foreground/60">No activity has been recorded yet.</p>
-            </CardContent>
-          </Card>
-        ) : (
-          activities.map((activity) => {
-            const Icon = getActivityIcon(activity.type);
-            const color = getActivityColor(activity.type);
+        {notifications.map((notification) => {
+          const style = notificationStyles[notification.kind];
 
-            return (
-              <Card
-                key={activity.id}
-                className="border-foreground/10 cursor-pointer transition-all hover:border-foreground/20"
-                onClick={() => navigate(activity.targetPath)}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-4">
-                    <div
-                      className="p-3 rounded-lg flex-shrink-0"
-                      style={{ backgroundColor: color + '20' }}
-                    >
-                      <Icon className="h-5 w-5" style={{ color }} />
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge variant="secondary" className="capitalize">{activity.type}</Badge>
-                        <span className="text-xs text-foreground/50 whitespace-nowrap">
-                          {formatTime(activity.createdAt)}
-                        </span>
-                      </div>
-                      <h4 className="font-semibold">{activity.title}</h4>
-                      <p className="text-sm text-foreground/70">{activity.message}</p>
-                      <p className="text-xs text-foreground/50 mt-2">{activity.actorName}</p>
-                    </div>
+          return (
+            <Card
+              key={notification.id}
+              className="cursor-pointer border-foreground/10 transition-all hover:border-foreground/20"
+              onClick={() => navigate(notification.targetPath)}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-start gap-4">
+                  <div
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg"
+                    style={{ backgroundColor: `${style.color}20` }}
+                  >
+                    <Bell className="h-5 w-5" style={{ color: style.color }} />
                   </div>
-                </CardContent>
-              </Card>
-            );
-          })
-        )}
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                      <Badge variant="secondary">{style.label}</Badge>
+                      <Badge variant="outline">{priorityLabels[notification.priority]}</Badge>
+                    </div>
+                    <h4 className="text-lg font-semibold">{notification.title}</h4>
+                    <p className="mt-1 text-base text-foreground/70">{notification.message}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );

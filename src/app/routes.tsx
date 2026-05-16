@@ -9,6 +9,7 @@ import UsersPage from './pages/UsersPage';
 import TeamsPage from './pages/TeamsPage';
 import ReportsPage from './pages/ReportsPage';
 import NotificationsPage from './pages/NotificationsPage';
+import ActivitiesPage from './pages/ActivitiesPage';
 import ProgressPage from './pages/ProgressPage';
 import SettingsPage from './pages/SettingsPage';
 import InviteAcceptPage from './pages/InviteAcceptPage';
@@ -77,7 +78,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'activities',
-        element: <NotificationsPage />,
+        element: <ActivitiesPage />,
       },
       {
         path: 'settings',
